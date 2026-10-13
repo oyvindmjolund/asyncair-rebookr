@@ -1,0 +1,3 @@
+anthropic==1.13.0
+openai==3.27.0
+pytest==9.1.1

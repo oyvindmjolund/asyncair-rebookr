@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AsyncAir · Control Tower</title>
+<style>
+  :root { --bg:#0b1020; --panel:#141b33; --ink:#e8ecf8; --muted:#8a94b8; --ok:#2fd18b; --down:#ff4d5e; --slow:#ffb020; --rl:#b48cff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:20px 28px; display:flex; align-items:baseline; gap:16px; border-bottom:1px solid #222b4d; }
+  header h1 { margin:0; font-size:22px; letter-spacing:.5px; }
+  header .tag { color:var(--muted); font-family: ui-monospace, Menlo, monospace; font-size:13px; }
+  main { padding:24px 28px; display:grid; gap:24px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 900px){ main { grid-template-columns: 1fr; } }
+  .panel { background:var(--panel); border-radius:14px; padding:20px; }
+  h2 { margin:0 0 14px; font-size:14px; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); }
+  .prov { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid #222b4d; }
+  .prov:last-child { border-bottom:0; }
+  .light { width:18px; height:18px; border-radius:50%; background:var(--ok); box-shadow:0 0 14px var(--ok); flex:none; }
+  .light.down { background:var(--down); box-shadow:0 0 18px var(--down); animation: blink .6s infinite; }
+  .light.slow { background:var(--slow); box-shadow:0 0 14px var(--slow); }
+  .light.flaky { background:var(--slow); box-shadow:0 0 14px var(--slow); animation: blink 1.2s infinite; }
+  .light.ratelimit { background:var(--rl); box-shadow:0 0 14px var(--rl); }
+  @keyframes blink { 50% { opacity:.35; } }
+  .name { font-weight:600; width:100px; }
+  .mode { font-family: ui-monospace, Menlo, monospace; font-size:13px; color:var(--muted); width:90px; }
+  .counts { font-family: ui-monospace, Menlo, monospace; font-size:13px; color:var(--muted); margin-left:auto; }
+  .btns { display:flex; gap:6px; flex-wrap:wrap; }
+  button { background:#222b4d; color:var(--ink); border:0; border-radius:8px; padding:7px 10px; font-size:12px; cursor:pointer; }
+  button:hover { background:#2d3866; }
+  #red { width:100%; padding:28px; font-size:22px; font-weight:800; letter-spacing:2px; border-radius:16px;
+         background:radial-gradient(circle at 50% 35%, #ff6b78, #c4102a); box-shadow:0 8px 0 #7d0718, 0 14px 30px rgba(255,40,70,.35); margin-bottom:14px; }
+  #red:active { transform: translateY(6px); box-shadow:0 2px 0 #7d0718; }
+  .hint { color:var(--muted); font-size:12px; line-height:1.6; }
+  kbd { background:#222b4d; border-radius:4px; padding:1px 6px; font-family: ui-monospace, Menlo, monospace; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #222b4d; }
+  th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  td.num { font-family: ui-monospace, Menlo, monospace; }
+  .up { color:var(--ok); } .dn { color:var(--down); }
+  #banner { display:none; grid-column: 1 / -1; background:var(--down); color:#fff; padding:14px 20px; border-radius:12px; font-weight:700; font-size:18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>✈ AsyncAir Control Tower</h1>
+  <span class="tag">Rebookr LLM gateway · mock</span>
+</header>
+<main>
+  <div id="banner">⚠ PROVIDER INCIDENT IN PROGRESS</div>
+  <section class="panel">
+    <h2>The red button</h2>
+    <button id="red" title="Space">KILL ANTHROPIC</button>
+    <div id="providers"></div>
+    <p class="hint">Keys: <kbd>Space</kbd> kill Anthropic · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> toggle Anthropic / OpenAI / Azure down ·
+      <kbd>S</kbd> make Anthropic slow · <kbd>R</kbd> rate-limit Anthropic · <kbd>F</kbd> Anthropic dies mid-stream · <kbd>0</kbd> all clear</p>
+  </section>
+  <section class="panel">
+    <h2>Team scoreboard</h2>
+    <table>
+      <thead><tr><th>Team</th><th>Answered</th><th>Failed</th><th>Last answered by</th></tr></thead>
+      <tbody id="teams"><tr><td colspan="4" class="hint">No traffic yet.</td></tr></tbody>
+    </table>
+    <p class="hint"><button onclick="fetch('/_reset_scores',{method:'POST'})">Reset scores</button></p>
+  </section>
+</main>
+<script>
+const PROVIDERS = ["anthropic", "openai", "azure"];
+let state = {};
+async function setMode(provider, mode) {
+  await fetch("/_chaos", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({provider, mode})});
+  refresh();
+}
+function renderProviders(s, counts) {
+  document.getElementById("providers").innerHTML = PROVIDERS.map(p => `
+    <div class="prov">
+      <div class="light ${s[p]}"></div><div class="name">${p}</div><div class="mode">${s[p].toUpperCase()}</div>
+      <div class="btns">${["ok","down","slow","ratelimit","flaky"].map(m => `<button onclick="setMode('${p}','${m}')">${m}</button>`).join("")}</div>
+      <div class="counts">${counts[p].ok}✓ ${counts[p].failed}✗</div>
+    </div>`).join("");
+  const anyDown = PROVIDERS.some(p => s[p] !== "ok");
+  document.getElementById("banner").style.display = anyDown ? "block" : "none";
+  const red = document.getElementById("red");
+  red.textContent = s.anthropic === "down" ? "RESTORE ANTHROPIC" : "KILL ANTHROPIC";
+}
+function renderTeams(teams) {
+  const rows = Object.entries(teams).sort((a,b) => b[1].ok - a[1].ok);
+  if (!rows.length) return;
+  const now = Date.now()/1000;
+  document.getElementById("teams").innerHTML = rows.map(([name,t]) => `
+    <tr><td>${name.replace(/</g,"&lt;")}</td><td class="num up">${t.ok}</td><td class="num dn">${t.failed}</td>
+    <td>${t.last_provider}${now - t.last_seen < 10 ? " ●" : ""}</td></tr>`).join("");
+}
+async function refresh() {
+  try {
+    const r = await fetch("/_chaos"); const j = await r.json();
+    state = j.state; renderProviders(j.state, j.counts); renderTeams(j.teams);
+  } catch (e) {}
+}
+document.getElementById("red").onclick = () => setMode("anthropic", state.anthropic === "down" ? "ok" : "down");
+document.addEventListener("keydown", e => {
+  if (e.key === " ") { e.preventDefault(); document.getElementById("red").click(); }
+  const idx = {"1":0,"2":1,"3":2}[e.key];
+  if (idx !== undefined) { const p = PROVIDERS[idx]; setMode(p, state[p] === "down" ? "ok" : "down"); }
+  if (e.key === "s" || e.key === "S") setMode("anthropic", "slow");
+  if (e.key === "r" || e.key === "R") setMode("anthropic", "ratelimit");
+  if (e.key === "f" || e.key === "F") setMode("anthropic", "flaky");
+  if (e.key === "0") setMode("all", "ok");
+});
+refresh(); setInterval(refresh, 1000);
+</script>
+</body>
+</html>

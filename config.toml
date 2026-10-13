@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------------------
+# AsyncAir / Rebookr configuration
+# Switching providers should mean editing THIS file, not the code.
+# ---------------------------------------------------------------------------
+
+mode = "mock"            # "mock" (control tower, no keys) | "live" (real APIs). Env override: ASYNCAIR_MODE
+team = "anonymous"       # shows up on the control-tower scoreboard. Env override: ASYNCAIR_TEAM
+system_prompt = "prompts/rebookr.claude.md"
+
+[mock]
+url = "http://localhost:8787"   # Env override: MOCK_URL (e.g. the instructor's shared tower)
+timeout_seconds = 5             # short on purpose: a "slow" provider becomes a timeout -> fallback
+
+[live]
+timeout_seconds = 60
+
+# Model aliases per provider. Code asks for "fast" or "smart", never a model name.
+# CHECK THESE before class - model IDs change. Azure values are YOUR deployment names.
+[providers.anthropic]
+fast  = "claude-haiku-5-5"
+smart = "claude-sonnet-5-5"
+
+[providers.openai]
+fast  = "gpt-5.4-mini"
+smart = "gpt-5.5"
+
+[providers.azure]
+fast  = "gpt-5-mini"            # DEPLOYMENT names in Foundry/Azure, not model names
+smart = "gpt-5"
+api_version = "2024-10-21"
+
+# Routes: an ordered fallback chain of "provider:alias".
+[routes.faq]
+chain = ["anthropic:fast", "openai:fast", "azure:fast"]
+
+[routes.rebooking]
+chain = ["anthropic:smart", "openai:smart", "azure:smart"]
+
+[routes.vision]
+chain = ["openai:smart", "anthropic:smart", "azure:smart"]
+
+[routes.eu_only]                # customer data that must stay in an EU region
+chain = ["azure:smart"]
+
+[resilience]
+retries_per_provider = 0        # extra tries on the SAME provider before moving on
+backoff_seconds = 0.5
+breaker_failures = 3            # consecutive failures before we stop calling a provider...
+breaker_cooldown_seconds = 30   # ...for this long
+
+# USD per million tokens, used by evals for cost estimates.
+# EXAMPLE VALUES ONLY - replace with current list prices, then set verified = true.
+# While verified = false, the deck data marks the cost column as not to be shown.
+[prices]
+verified = false
+
+[prices.anthropic]
+fast  = { input = 1.0, output = 5.0 }
+smart = { input = 3.0, output = 15.0 }
+
+[prices.openai]
+fast  = { input = 0.25, output = 2.0 }
+smart = { input = 1.25, output = 10.0 }
+
+[prices.azure]
+fast  = { input = 0.25, output = 2.0 }
+smart = { input = 1.25, output = 10.0 }
