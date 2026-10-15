@@ -46,6 +46,16 @@
   .vote-info { color:var(--muted); font-size:14px; margin-top:14px; line-height:1.7; }
   .vote-info a { color:var(--ink); }
   .vote-info b { color:var(--ink); }
+  .deck-row { display:flex; flex-wrap:wrap; align-items:center; gap:28px; }
+  #deckOpen { font-size:17px; font-weight:700; padding:16px 24px; border-radius:12px; background:#FFB23F; color:#0E1A2B; }
+  #deckOpen:disabled { opacity:.4; cursor:not-allowed; }
+  .deck-timer { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .deck-timer .t { font-family: ui-monospace, Menlo, monospace; font-weight:700; font-size:56px; line-height:1; font-variant-numeric:tabular-nums; }
+  .deck-timer .meta { color:var(--muted); font-size:15px; line-height:1.6; }
+  .deck-timer .meta b { color:var(--ink); }
+  .deck-timer.off .t, .deck-timer.off .btns { display:none; }
+  .deck-timer.late .t, .deck-timer.late .meta b { color:var(--down); }
+  .deck-timer .btns button { font-size:14px; padding:9px 14px; }
   #banner { display:none; grid-column: 1 / -1; background:var(--down); color:#fff; padding:14px 20px; border-radius:12px; font-weight:700; font-size:18px; }
 </style>
 </head>
@@ -56,6 +66,18 @@
 </header>
 <main>
   <div id="banner">⚠ PROVIDER INCIDENT IN PROGRESS</div>
+  <section class="panel" style="grid-column:1 / -1">
+    <h2>Presentasjon</h2>
+    <div class="deck-row">
+      <button id="deckOpen">Åpne presentasjonen</button>
+      <div class="deck-timer off" id="deckTimer">
+        <div class="t" id="dtT">0:00</div>
+        <div class="meta" id="dtMeta">Presentasjonen er ikke åpen.</div>
+        <div class="btns"><button id="dtReset">Tilbakestill</button><button id="dtPause">Pause</button></div>
+      </div>
+    </div>
+    <p class="hint">Åpnes i eget vindu: dra det til projektoren og trykk <kbd>F</kbd> der. Timeren her følger presentasjonen og vises ikke på projektoren.</p>
+  </section>
   <section class="panel">
     <h2>The red button</h2>
     <button id="red" title="Space">KILL ANTHROPIC</button>
@@ -136,14 +158,51 @@ async function refreshVote() {
   try {
     const j = await (await fetch("/_vote/results")).json();
     document.querySelectorAll("#voteRow [data-round]").forEach(b => b.classList.toggle("on", b.dataset.round === j.active && j.active !== "0"));
-    const o = location.origin;
+    // The dashboard runs on the admin port; graduates use the public port.
+    const PUB = "__PUBLIC_PORT__", ADM = "__ADMIN_PORT__";
+    const o = location.origin.replace("-" + ADM + ".", "-" + PUB + ".").replace(new RegExp(":" + ADM + "$"), ":" + PUB);
     document.getElementById("voteInfo").innerHTML =
       `Status: <b>${j.active === "0" ? "stengt" : "runde " + j.active + " er åpen"}</b> · ` +
       `<b>${j.online}</b> med stemmesiden åpen · stemmer: R1 <b>${j.totals["1"]}</b>, R2 <b>${j.totals["2"]}</b>, R3 <b>${j.totals["3"]}</b><br>` +
+      `Tårn-URL (slide 30): <b>${o}</b><br>` +
       `Stemmeside: <a href="${o}/vote" target="_blank">${o}/vote</a> · ` +
       `Resultater (projektor): <a href="${o}/results" target="_blank">${o}/results</a>`;
   } catch (e) {}
 }
+/* ---------- presentation: open /deck in its own window, mirror its timer here ---------- */
+const HAS_DECK = "__HAS_DECK__" === "1";
+const deckBtn = document.getElementById("deckOpen"), dt = document.getElementById("deckTimer");
+let deckWin = null, deckMsg = null, deckSeen = 0, chan = null;
+try { chan = new BroadcastChannel("asyncair-deck"); } catch (e) {}
+if (!HAS_DECK) { deckBtn.disabled = true; document.getElementById("dtMeta").textContent = "Fant ikke deck/asyncair-masterclass.html i repoet."; }
+deckBtn.onclick = () => {
+  if (deckWin && !deckWin.closed) { deckWin.focus(); return; }
+  deckWin = window.open("/deck", "asyncair-deck", "popup,width=1600,height=900");
+  if (!deckWin) alert("Nettleseren blokkerte vinduet. Tillat popup-vinduer for denne siden og prøv igjen.");
+};
+if (chan) chan.onmessage = e => {
+  const m = e.data || {};
+  if (m.type === "deck") { deckMsg = m; deckSeen = Date.now(); renderDeck(); }
+  if (m.type === "closed") { deckSeen = 0; renderDeck(); }
+};
+function renderDeck() {
+  const live = deckMsg && Date.now() - deckSeen < 2500;
+  dt.classList.toggle("off", !live);
+  deckBtn.textContent = live ? "Vis presentasjonsvinduet" : "Åpne presentasjonen";
+  if (!live) { if (HAS_DECK) document.getElementById("dtMeta").textContent = "Presentasjonen er ikke åpen."; dt.classList.remove("late"); return; }
+  const m = deckMsg, s = Math.floor(m.elapsed), late = m.elapsed / 60 > m.start + m.min;
+  document.getElementById("dtT").innerHTML = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` + (m.paused ? ` <span style="font-size:18px;color:var(--slow)">PAUSE</span>` : "");
+  document.getElementById("dtMeta").innerHTML = `Slide <b>${m.slide}/${m.total}</b> · <b>${m.gate} ${m.name}</b><br>mål ${m.start}–${m.start + m.min} min` + (late ? " · <b>over tiden</b>" : "");
+  dt.classList.toggle("late", late);
+  document.getElementById("dtPause").textContent = m.paused ? "Fortsett" : "Pause";
+}
+document.getElementById("dtReset").onclick = () => {
+  if (deckMsg && deckMsg.elapsed > 60 && !confirm("Nullstille timeren?")) return;
+  chan && chan.postMessage({ cmd: "reset" });
+};
+document.getElementById("dtPause").onclick = () => chan && chan.postMessage({ cmd: "pause" });
+setInterval(renderDeck, 500);
+
 refresh(); setInterval(refresh, 1000);
 refreshVote(); setInterval(refreshVote, 1500);
 </script>

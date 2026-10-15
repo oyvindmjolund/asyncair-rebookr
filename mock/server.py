@@ -5,18 +5,31 @@ Speaks three wire formats so the *real* vendor SDKs can talk to it:
   OpenAI     POST /openai/v1/chat/completions
   Azure      POST /azure/openai/deployments/<deployment>/chat/completions?api-version=...
 
+Two ports, one process (shared state):
+  8787  PUBLIC  the three LLM APIs, /vote, /results, /health, GET /_chaos
+                (set this port to Public in Codespaces; graduates use it)
+  8788  ADMIN   everything above + the dashboard and all controls
+                (leave it Private in Codespaces, so only your GitHub login gets in)
+  The public port answers 403 on the dashboard and on every control route.
+
 Blind test voting (slides 35-39):
   GET  /vote                  phone page with A/B/C buttons
   GET  /results               projector page with live results
-  POST /_vote/control         {"active": 1|2|3|0}  or  {"reset": true}
+  POST /_vote/control         {"active": 1|2|3|0}  or  {"reset": true}      (admin)
+
+Presentation (admin):
+  GET  /deck                  the slide deck (deck/asyncair-masterclass.html, override MOCK_DECK),
+                              with the tower URL and repo link filled in for slides 30 and 50.
+                              The dashboard opens it in its own window and shows its timer.
 
 Chaos control (the red button):
-  GET  /                      dashboard with buttons + team scoreboard
+  GET  /                      dashboard with buttons + team scoreboard      (admin)
   GET  /_chaos                current state as JSON
-  POST /_chaos  {"provider": "anthropic", "mode": "down"}
+  POST /_chaos  {"provider": "anthropic", "mode": "down"}                   (admin)
        modes: ok | down | slow | ratelimit       provider "all" resets everything
+  POST /_reset_scores                                                       (admin)
 
-Run:  python -m mock.server   (port 8787, override with MOCK_PORT)
+Run:  python -m mock.server   (ports 8787 + 8788, override with MOCK_PORT / MOCK_ADMIN_PORT)
 Stdlib only, so it starts even if pip is having a bad day.
 """
 from __future__ import annotations
@@ -35,6 +48,12 @@ from mock.brain import Decision, Turn, decide, estimate_tokens
 
 PROVIDERS = ("anthropic", "openai", "azure")
 MODES = ("ok", "down", "slow", "ratelimit", "flaky")   # flaky = dies halfway through a stream
+PUBLIC_PORT = int(os.environ.get("MOCK_PORT", "8787"))
+ADMIN_PORT = int(os.environ.get("MOCK_ADMIN_PORT", "8788"))
+# Instructor-only routes: refused on the public port, served on the admin port.
+ADMIN_GET = {"/", "/dashboard", "/deck"}
+DECK_PATH = Path(os.environ.get("MOCK_DECK") or Path(__file__).resolve().parent.parent / "deck" / "asyncair-masterclass.html")
+ADMIN_POST = {"/_chaos", "/_vote/control", "/_reset_scores"}
 SLOW_SECONDS = float(os.environ.get("MOCK_SLOW_SECONDS", "8"))
 STREAM_DELAY = float(os.environ.get("MOCK_STREAM_DELAY", "0.03"))
 
@@ -45,6 +64,44 @@ TEAMS: dict[str, dict] = {}
 DASHBOARD = (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
 VOTE_PAGE = (Path(__file__).parent / "vote.html").read_text(encoding="utf-8")
 RESULTS_PAGE = (Path(__file__).parent / "results.html").read_text(encoding="utf-8")
+def _public_url() -> str:
+    """The tower URL graduates use (slide 30)."""
+    name, domain = os.environ.get("CODESPACE_NAME"), os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+    return f"https://{name}-{PUBLIC_PORT}.{domain}" if name and domain else ""
+
+
+def _repo_link() -> str:
+    """github.com/<owner>/<repo> for slide 50, from Codespaces env or .git/config."""
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if not repo:
+        try:
+            cfg = (Path(__file__).resolve().parent.parent / ".git" / "config").read_text(encoding="utf-8")
+            m = re.search(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?\s", cfg + "\n")
+            repo = m.group(1) if m else ""
+        except OSError:
+            pass
+    return f"github.com/{repo}" if repo else ""
+
+
+def _deck_page() -> str | None:
+    """Read the deck on every request, so an updated file needs no restart."""
+    try:
+        page = DECK_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    info = {"tower": _public_url(), "repo": _repo_link(), "publicPort": PUBLIC_PORT, "adminPort": ADMIN_PORT}
+    tag = "<script>window.ASYNCAIR_TOWER = " + json.dumps(info).replace("</", "<\\/") + ";</script>\n"
+    return page.replace("</head>", tag + "</head>", 1)
+
+
+LOCKED_PAGE = (
+    "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<title>AsyncAir kontrolltårn</title>"
+    "<body style='font-family:system-ui,sans-serif;background:#0E1A2B;color:#fff;padding:48px;line-height:1.5'>"
+    "<h1 style='color:#FFB23F;margin:0 0 12px'>AsyncAir kontrolltårn</h1>"
+    "<p>Fin innsats, men den røde knappen er instruktørens.</p>"
+    "<p>Stemmesiden ligger på <a style='color:#FFB23F' href='/vote'>/vote</a>.</p></body>"
+)
 
 # Blind test voting. One ballot per voter per round; voters may change their mind until the round closes.
 ROUNDS = ("1", "2", "3")
@@ -147,6 +204,7 @@ def _chunks(text: str, size: int = 12):
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "AsyncAirMock/1.0"
+    admin = True    # PublicHandler (port 8787) sets this to False
 
     def log_message(self, fmt, *args):  # quieter logs
         if os.environ.get("MOCK_VERBOSE"):
@@ -180,14 +238,21 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", "0") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
-    def _html(self, page: str):
+    def _html(self, page: str, status: int = 200):
         data = page.encode()
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
+
+    def _locked(self):
+        """Instructor-only route hit on the public port."""
+        self.close_connection = True   # request body (if any) is left unread
+        if self.command == "GET":
+            return self._html(LOCKED_PAGE, 403)
+        self._json(403, {"error": "instructor only: the control tower is steered from the admin port"})
 
     def _team(self) -> str:
         return (self.headers.get("x-asyncair-team") or "anonymous")[:40]
@@ -219,8 +284,16 @@ class Handler(BaseHTTPRequestHandler):
     # ---- routing ----------------------------------------------------------
     def do_GET(self):
         path = urlparse(self.path).path
+        if not self.admin and path in ADMIN_GET:
+            return self._locked()
         if path in ("/", "/dashboard"):
-            self._html(DASHBOARD)
+            self._html(DASHBOARD.replace("__PUBLIC_PORT__", str(PUBLIC_PORT)).replace("__ADMIN_PORT__", str(ADMIN_PORT))
+                       .replace("__HAS_DECK__", "1" if DECK_PATH.is_file() else "0"))
+        elif path == "/deck":
+            page = _deck_page()
+            if page is None:
+                return self._json(404, {"error": f"deck not found at {DECK_PATH}"})
+            self._html(page)
         elif path == "/vote":
             self._html(VOTE_PAGE)
         elif path == "/results":
@@ -246,6 +319,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if not self.admin and path in ADMIN_POST:
+            return self._locked()
         try:
             body = self._body()
         except json.JSONDecodeError:
@@ -418,13 +493,22 @@ class Handler(BaseHTTPRequestHandler):
         self._sse("[DONE]")
 
 
+class PublicHandler(Handler):
+    """What graduates reach: the APIs and the voting pages, no controls."""
+    admin = False
+
+
 def main():
-    port = int(os.environ.get("MOCK_PORT", "8787"))
-    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-    srv.daemon_threads = True
-    print(f"✈  AsyncAir control tower on http://localhost:{port}  (dashboard at /)", flush=True)
+    pub = ThreadingHTTPServer(("0.0.0.0", PUBLIC_PORT), PublicHandler)
+    adm = ThreadingHTTPServer(("127.0.0.1", ADMIN_PORT), Handler)
+    for s in (pub, adm):
+        s.daemon_threads = True
+    threading.Thread(target=adm.serve_forever, daemon=True).start()
+    print(f"✈  AsyncAir control tower", flush=True)
+    print(f"   public  http://localhost:{PUBLIC_PORT}  APIs, /vote, /results  (set to Public)", flush=True)
+    print(f"   admin   http://localhost:{ADMIN_PORT}  dashboard + controls  (keep Private)", flush=True)
     try:
-        srv.serve_forever()
+        pub.serve_forever()
     except KeyboardInterrupt:
         pass
 

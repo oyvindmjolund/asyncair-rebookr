@@ -99,6 +99,22 @@ Then rehearse the whole thing once, including pressing the red button for real.
 *Copy Local Address* → paste on slide 30. Test `https://<address>/health` in an incognito window.
 A Codespace stops after 30 idle minutes: open it early and keep a terminal busy.
 
+**Two ports.** 8787 (Public) serves the APIs, `/vote` and `/results`. The dashboard and every
+control route (`POST /_chaos`, `/_vote/control`, `/_reset_scores`) live on **8788**, which you
+leave **Private**: Codespaces then only lets your own GitHub login in. On 8787 those routes answer
+403, so graduates can't press the red button or reset the scoreboard. Open the dashboard from the
+Ports tab (8788) in a browser where you're signed in to GitHub. The dashboard shows the public
+tower URL for slide 30. In an older Codespace, forward 8788 by hand in the Ports tab.
+
+**The deck runs from the tower.** On the dashboard (8788), *Åpne presentasjonen* opens `/deck` in
+its own window: drag it to the projector and press `F` there. The dashboard then shows the timer
+(elapsed, slide, section, red when late) with *Tilbakestill* and *Pause*, so nothing timing-related
+is on the projector. The tower fills in the tower URL (slide 30, and the QR code on 35) and the
+repo link (slide 50) from the Codespace. The file is `deck/asyncair-masterclass.html`, read on
+every request, so an updated deck needs no restart. Allow pop-ups for the 8788 address. The deck
+keeps running if the Codespace stops, but the voting and the red button don't. Backup: the same
+file on claude.ai, with the clock icon's timer window as before.
+
 **Blind test voting (slides 35-39)** runs in the same tower, no Mentimeter needed:
 - Phones: `<tower-URL>/vote` (slide 35 shows a QR code once the URL is on slide 30).
 - You: the *Blindtest · avstemning* panel on the dashboard - open round 1, 2, 3, then *Steng*.

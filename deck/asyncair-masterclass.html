@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fredag 16:47 · Leverandøruavhengig LLM-arkitektur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#0E1A2B; --muted:#55657C; --line:#D3DAE4;
+  --amber:#A35F00; --signal:#FFB23F; --red:#C8323A; --green:#147A4B;
+  --code-bg:#E9EEF5; --hl:rgba(255,178,63,.38); --board:#101C2E; --board-ink:#FFB23F; --board-cell:#17263C;
+  --sans:"Barlow", "Segoe UI", system-ui, sans-serif;
+  --cond:"Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0E1A2B; --surface:#15243A; --ink:#E9EEF5; --muted:#8FA0B8;     --amber:#FFB23F; --red:#F2555A; --green:#3DD68C; --code-bg:#0A1422; --hl:rgba(255,178,63,.22);
+    --line:#263852;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0E1A2B; --surface:#15243A; --ink:#E9EEF5; --muted:#8FA0B8; --line:#263852;
+  --amber:#FFB23F; --red:#F2555A; --green:#3DD68C; --code-bg:#0A1422; --hl:rgba(255,178,63,.22);
+}
+:root { box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+*, *::before, *::after { box-sizing:inherit; }
+html { scroll-padding-top:env(safe-area-inset-top,0px); height:100%; }
+html, body { margin:0; height:100%; overflow:hidden; }
+body { background:var(--bg); color:var(--ink); font-family:var(--sans); }
+
+#viewport { position:relative; width:100%; height:100%; overflow:hidden; }
+#stage { position:absolute; left:50%; top:50%; width:1600px; height:900px; transform-origin:center center; }
+.slide { position:absolute; inset:0; padding:78px 110px 120px; display:none; flex-direction:column; }
+.slide.active { display:flex; }
+.slide > * { flex-shrink:0; }
+.code3 pre.tiny { font-size:17px; line-height:1.42; }
+.tight li { font-size:27px; margin-bottom:12px; }
+.slide.center { justify-content:center; }
+
+/* type scale (stage px) */
+h1, h2, h3 { font-family:var(--cond); margin:0; letter-spacing:-.01em; }
+h1 { font-size:128px; font-weight:700; line-height:.95; }
+h2 { font-size:68px; font-weight:600; line-height:1.02; margin-bottom:36px; }
+h3 { font-size:38px; font-weight:600; line-height:1.1; }
+p, li { font-size:32px; line-height:1.38; max-width:28em; }
+p { margin:0 0 22px; }
+.lede { font-size:40px; line-height:1.3; max-width:24em; }
+.small { font-size:24px; color:var(--muted); }
+.muted { color:var(--muted); }
+.big-q { font-family:var(--cond); font-size:104px; font-weight:600; line-height:1; max-width:13em; }
+ul.plain { list-style:none; padding:0; margin:0; }
+ul.plain li { margin-bottom:18px; }
+strong { font-weight:600; }
+
+/* code */
+pre, code { font-family:var(--mono); }
+pre { background:var(--code-bg); border-radius:10px; padding:26px 30px; margin:0; font-size:22px; line-height:1.5; overflow:hidden; white-space:pre; }
+pre.tiny { font-size:18.5px; padding:20px 22px; }
+pre.sm { font-size:19px; }
+code.inl { font-size:.86em; background:var(--code-bg); padding:2px 8px; border-radius:6px; }
+.c { color:var(--muted); font-style:italic; }
+.hl { background:var(--hl); border-radius:3px; }
+.add { color:var(--green); } .del { color:var(--red); }
+.term { background:#0A1220; color:#D7E0EC; border-radius:12px; padding:26px 30px; font-family:var(--mono); font-size:22px; line-height:1.5; white-space:pre; overflow:hidden; }
+.term .p { color:#FFB23F; } .term .e { color:#FF6B70; } .term .d { color:#7F8DA3; } .term .g { color:#3DD68C; }
+
+/* layout helpers */
+.cols { display:grid; gap:48px; align-items:start; }
+.cols.two { grid-template-columns:1fr 1fr; }
+.cols.three { grid-template-columns:repeat(3, 1fr); gap:24px; }
+.cols.wide-left { grid-template-columns:1.35fr 1fr; }
+.grow { flex:1; }
+.label { font-family:var(--cond); font-size:26px; font-weight:600; color:var(--amber); margin-bottom:10px; }
+
+/* fragments */
+.step { opacity:0; transition:opacity .25s ease; }
+.step.shown { opacity:1; }
+
+/* bottom bar: segment timeline */
+#bar { position:absolute; left:110px; right:110px; bottom:38px; height:44px; display:flex; align-items:flex-end; gap:22px; font-family:var(--cond); font-size:22px; color:var(--muted); pointer-events:none; }
+#bar .track { flex:1; display:flex; gap:4px; height:6px; margin-bottom:8px; }
+#bar .seg { height:100%; background:var(--line); border-radius:3px; position:relative; }
+#bar .seg.past { background:var(--muted); opacity:.55; }
+#bar .seg.now { background:var(--signal); }
+#bar .where { white-space:nowrap; min-width:300px; }
+#bar .timer-link { pointer-events:auto; color:var(--muted); display:grid; place-items:center; width:40px; height:40px; border-radius:8px; border:0; background:none; cursor:pointer; padding:0; }
+#bar .timer-link:hover { color:var(--ink); background:var(--code-bg); }
+#twFloat { position:fixed; top:16px; right:16px; z-index:23; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:14px; padding:14px 18px; box-shadow:0 8px 24px rgba(0,0,0,.25); text-align:center; font-family:var(--sans); }
+#twFloat .t { font-family:var(--mono); font-weight:600; font-size:44px; font-variant-numeric:tabular-nums; }
+#twFloat .seg { font-size:13px; color:var(--muted); margin:4px 0 10px; max-width:260px; }
+#twFloat .late { color:var(--red); }
+#twFloat .btns { display:flex; gap:8px; justify-content:center; }
+#twFloat button { font:600 14px var(--sans); padding:7px 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; }
+#twFloat button.primary { background:var(--signal); border-color:var(--signal); color:#0E1A2B; }
+#twFloat #twClose { position:absolute; top:4px; right:6px; border:0; background:none; font-size:18px; padding:2px 6px; color:var(--muted); }
+#bar .num { white-space:nowrap; min-width:60px; text-align:right; font-variant-numeric:tabular-nums; }
+.slide.nobar.active ~ #bar { display:none; }
+
+/* split-flap board */
+.board { background:var(--board); border-radius:14px; padding:26px 34px 30px; color:var(--board-ink); font-family:var(--mono); box-shadow:inset 0 0 0 2px #1E2F48;
+  display:grid; grid-template-columns:repeat(4, max-content); column-gap:44px; row-gap:10px; width:max-content; font-size:38px; }
+.board .head, .board .row { display:contents; }
+.board .head span { font-family:var(--cond); font-size:22px; color:#8FA0B8; align-self:end; padding-left:2px; }
+.board .row.past > * { opacity:.45; }
+.board .row.now .status { animation:blink 1.1s steps(2, jump-none) infinite; }
+.board .cellset { display:flex; gap:3px; }
+.board .ch { display:inline-block; width:1.02ch; text-align:center; background:var(--board-cell); border-radius:3px; line-height:1.35; position:relative; }
+.board .ch::after { content:""; position:absolute; left:0; right:0; top:50%; height:1px; background:rgba(0,0,0,.55); }
+.board .row.now .ch { color:#FFFFFF; }
+.board .row.now .status .ch { color:#3DD68C; }
+@keyframes blink { 50% { opacity:.35; } }
+
+.flapclock { display:flex; gap:12px; font-family:var(--mono); font-weight:600; font-size:220px; color:var(--board-ink); }
+.flapclock .ch { background:var(--board); width:.78em; text-align:center; border-radius:16px; line-height:1.18; position:relative; box-shadow:inset 0 0 0 3px #1E2F48; }
+.flapclock .ch::after { content:""; position:absolute; left:0; right:0; top:50%; height:4px; background:rgba(0,0,0,.6); }
+.flapclock .sep { background:none; box-shadow:none; width:.42em; }
+.flapclock .sep::after { display:none; }
+.flapclock .ch.flip { animation:flip .18s ease-in; }
+@keyframes flip { 0% { transform:scaleY(1); } 50% { transform:scaleY(.08); } 100% { transform:scaleY(1); } }
+
+/* logo */
+.mark { color:var(--ink); }
+.mark .trail { stroke:var(--signal); fill:none; stroke-width:7; }
+.mark .plane { fill:currentColor; }
+.spin { transform-origin:60px 60px; animation:orbit 7s linear infinite; }
+@keyframes orbit { to { transform:rotate(360deg); } }
+.wordmark { font-family:var(--cond); font-weight:700; letter-spacing:-.015em; line-height:1; }
+.logo-lockup { display:flex; align-items:center; gap:34px; }
+
+/* misc components */
+.callout { border-left:6px solid var(--signal); padding:6px 0 6px 28px; }
+.callout.red { border-color:var(--red); }
+.factrow { display:grid; grid-template-columns:260px 1fr; gap:10px 34px; font-size:30px; line-height:1.35; padding:16px 0; border-top:1px solid var(--line); }
+.factrow dt { font-family:var(--cond); font-weight:600; color:var(--muted); font-size:28px; }
+.factrow dd { margin:0; }
+.reasons { display:grid; grid-template-columns:1fr 1fr; gap:34px 70px; }
+.reasons div { border-top:3px solid var(--ink); padding-top:14px; }
+.reasons h3 { margin-bottom:8px; }
+.reasons p { font-size:28px; margin:0; color:var(--muted); }
+.diffs { counter-reset:d; display:grid; grid-template-columns:1fr 1fr; gap:14px 60px; }
+.diffs li { font-size:27px; list-style:none; position:relative; padding-left:56px; }
+.diffs li::before { counter-increment:d; content:counter(d); position:absolute; left:0; top:0; font-family:var(--cond); font-weight:700; font-size:30px; color:var(--amber); }
+table.matrix { border-collapse:collapse; width:100%; font-size:25px; }
+table.matrix th, table.matrix td { text-align:left; padding:14px 18px; border-bottom:1px solid var(--line); vertical-align:top; }
+table.matrix th { font-family:var(--cond); font-weight:600; font-size:28px; }
+table.matrix td:first-child { font-weight:600; width:22%; }
+.countdown { font-family:var(--mono); font-weight:600; font-size:64px; color:var(--amber); cursor:pointer; user-select:none; font-variant-numeric:tabular-nums; }
+.countdown.done { color:var(--red); animation:blink 1s steps(2, jump-none) infinite; }
+.countdown-wrap { display:flex; align-items:baseline; gap:20px; }
+[contenteditable] { outline:1px dashed transparent; border-radius:6px; cursor:text; }
+[contenteditable]:hover, [contenteditable]:focus { outline-color:var(--muted); }
+.answer { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:22px 24px; font-size:17px; line-height:1.38; height:515px; overflow:auto; padding:18px 20px; white-space:pre-wrap; }
+.answer p { margin:0 0 9px; font-size:inherit; line-height:inherit; max-width:none; }
+.answer p:last-child { margin-bottom:0; }
+.qr-box { background:#FFFFFF; border-radius:18px; padding:22px; width:fit-content; justify-self:center; }
+#vote-qr { width:340px; height:340px; display:grid; place-items:center; color:#55657C; font-size:20px; text-align:center; }
+#vote-qr img, #vote-qr canvas { display:block; }
+.answer-letter { font-family:var(--cond); font-weight:700; font-size:54px; color:var(--amber); margin-bottom:8px; }
+.passenger { font-size:28px; line-height:1.3; padding:16px 24px; background:var(--code-bg); border-radius:14px 14px 14px 4px; margin-bottom:28px; max-width:none; }
+.ladder li { font-size:27px; margin-bottom:18px; max-width:none; }
+.ladder b { font-family:var(--cond); font-size:32px; display:block; }
+.dim-red { color:var(--red); }
+.ok { color:var(--green); }
+
+/* phone mock */
+.phone { width:430px; height:720px; border-radius:46px; background:var(--surface); border:10px solid var(--ink); padding:28px 22px; display:flex; flex-direction:column; gap:14px; font-size:20px; line-height:1.4; }
+.phone .top { font-family:var(--cond); font-weight:600; font-size:24px; display:flex; align-items:center; gap:10px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+.bubble { padding:12px 16px; border-radius:16px; max-width:85%; }
+.bubble.me { align-self:flex-end; background:var(--ink); color:var(--bg); border-bottom-right-radius:4px; }
+.bubble.bot { align-self:flex-start; background:var(--code-bg); border-bottom-left-radius:4px; }
+.call { display:flex; align-items:center; gap:26px; background:var(--surface); border:2px solid var(--red); border-radius:22px; padding:24px 30px; width:fit-content; }
+.call .ring { width:72px; height:72px; border-radius:50%; background:var(--red); display:grid; place-items:center; color:#fff; font-size:36px; animation:ring 1s ease-in-out infinite; }
+@keyframes ring { 0%,100% { transform:rotate(0); } 20% { transform:rotate(-14deg); } 40% { transform:rotate(14deg); } 60% { transform:rotate(-8deg); } }
+.line-scale { position:relative; height:12px; background:linear-gradient(90deg, var(--muted), var(--signal)); border-radius:6px; margin:40px 0 18px; }
+.line-ends { display:flex; justify-content:space-between; font-family:var(--cond); font-size:30px; font-weight:600; }
+.pin { position:absolute; top:202px; width:50px; height:50px; margin-left:-25px; border-radius:50%; background:var(--ink); color:var(--bg); border:4px solid var(--bg); display:grid; place-items:center; font-family:var(--cond); font-weight:700; font-size:28px; }
+.pin-inline { display:inline-grid; place-items:center; width:40px; height:40px; border-radius:50%; background:var(--ink); color:var(--bg); font-family:var(--cond); font-weight:700; font-size:24px; margin-right:18px; vertical-align:middle; }
+
+#goto { position:fixed; top:24px; left:50%; transform:translateX(-50%); background:var(--surface); color:var(--ink); border:2px solid var(--signal); border-radius:12px; padding:12px 22px; font-family:var(--mono); font-size:22px; display:none; z-index:22; }
+#blackout { position:fixed; inset:0; background:#000; display:none; z-index:20; }
+#help { position:fixed; right:24px; bottom:24px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:18px 22px; font-size:15px; line-height:1.7; display:none; z-index:21; }
+#help kbd { font-family:var(--mono); background:var(--code-bg); padding:1px 6px; border-radius:4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin, .call .ring, .board .row.now .status, .countdown.done { animation:none !important; }
+  .flapclock .ch.flip { animation:none; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="mark" viewBox="0 0 120 120">
+      <g style="fill:none;stroke:var(--signal);stroke-width:7">
+        <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="0" opacity=".22" transform="rotate(-90 60 60)"/>
+        <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="-69.1" opacity=".55" transform="rotate(-90 60 60)"/>
+        <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="-138.2" transform="rotate(-90 60 60)"/>
+      </g>
+      <path style="fill:currentColor" transform="translate(16 58) rotate(-90) scale(1.15)" d="M14 0 L6 -2 L-2 -12 L-6 -12 L-2 -2 L-10 -2 L-13 -6 L-16 -6 L-14 0 L-16 6 L-13 6 L-10 2 L-2 2 L-6 12 L-2 12 L6 2 Z"/>
+    </symbol>
+  </defs>
+</svg>
+<div id="viewport"><div id="stage">
+<!-- ============ SLIDE 0 · BLANK (før start) ============ -->
+<section class="slide nobar blank" data-seg="0" aria-label="Blank"></section>
+
+<!-- ============ A1 · FREDAG 16:47 (0–8) ============ -->
+<section class="slide center nobar" data-seg="0">
+  <div class="logo-lockup" style="margin-bottom:56px">
+    <svg class="mark" width="84" height="84" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>
+    <span class="small">Builder track · masterclass</span>
+  </div>
+  <h1 style="max-width:12ch">Leverandør&shy;uavhengig LLM-arkitektur</h1>
+  <p class="lede muted" style="margin-top:34px">Hvordan du bytter leverandør uten å rive koden i filler.</p>
+</section>
+
+<section class="slide center" data-seg="0">
+  <div class="logo-lockup">
+    <svg class="mark" width="260" height="260" viewBox="0 0 120 120" role="img" aria-label="AsyncAir-logo">
+      <g class="spin">
+        <g style="fill:none;stroke:var(--signal);stroke-width:7">
+          <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="0" opacity=".22" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="-69.1" opacity=".55" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" stroke-dasharray="69.1 276.5" stroke-dashoffset="-138.2" transform="rotate(-90 60 60)"/>
+        </g>
+        <path style="fill:currentColor" transform="translate(16 58) rotate(-90) scale(1.15)" d="M14 0 L6 -2 L-2 -12 L-6 -12 L-2 -2 L-10 -2 L-13 -6 L-16 -6 L-14 0 L-16 6 L-13 6 L-10 2 L-2 2 L-6 12 L-2 12 L6 2 Z"/>
+      </g>
+    </svg>
+    <div>
+      <div class="wordmark" style="font-size:190px">AsyncAir</div>
+      <div style="font-family:var(--cond);font-size:44px;color:var(--muted);margin-top:6px">Your flight will resolve eventually.</div>
+    </div>
+  </div>
+  <p class="lede step" style="margin-top:80px;max-width:30em">Forsinket? Nei da. Bare asynkron.</p>
+</section>
+
+<section class="slide" data-seg="0">
+  <h2>AsyncAir i korte trekk</h2>
+  <dl style="margin:0;max-width:1250px">
+    <div class="factrow"><dt>Hovedbase</dt><dd>Kristiansand lufthavn Kjevik (KRS), med rutekode AX</dd></div>
+    <div class="factrow"><dt>Flåten</dt><dd>42 fly, blant dem LN-AWT «Await», LN-CBK «Callback» og LN-EVL «Event Loop». LN-NUL «Null» står permanent på bakken.</dd></div>
+    <div class="factrow"><dt>Bonusprogram</dt><dd>Promise Club, med nivåene Pending, Fulfilled og Settled</dd></div>
+    <div class="factrow"><dt>Lounge</dt><dd>The Event Loop: uansett hvor du går, havner du der du startet</dd></div>
+    <div class="factrow"><dt>Punktlighet</dt><dd>100 % <em>eventually</em></dd></div>
+  </dl>
+</section>
+
+<section class="slide" data-seg="0">
+  <div class="cols wide-left grow" style="align-items:center">
+    <div>
+      <h2>Dere er Capgeminis team hos AsyncAir</h2>
+      <p>Uke tre av oppdraget. Dere eier <strong>Rebookr</strong>, flyselskapets AI-assistent for ombooking.</p>
+      <div class="callout" style="margin-top:40px">
+        <p style="font-size:38px;font-family:var(--cond);font-weight:600;margin-bottom:8px">«Gjør Rebookr enterprise-ready.»</p>
+        <p class="small" style="margin:0">Turid Turbulens, CTO i AsyncAir</p>
+      </div>
+    </div>
+    <div class="phone" aria-label="Rebookr-chat">
+      <div class="top"><svg width="30" height="30" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>Rebookr</div>
+      <div class="bubble me">Flyet mitt KRS–OSL i kveld ble kansellert. Kan du booke meg om?</div>
+      <div class="bubble bot">Beklager at reisen din ble forstyrret. Jeg fant disse avgangene:<br>· AX616 kl. 18:05<br>· AX964 kl. 20:55<br>· AX209 i morgen 07:15<br>Hvilken vil du ha?</div>
+      <div class="bubble me">AX964, takk. Ref Q7XK2P</div>
+      <div class="bubble bot">Ordnet! Nytt boardingkort er sendt på e-post.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-seg="0">
+  <h2>Dagens avganger</h2>
+  <div class="board" data-board="0" data-agenda="1"></div>
+</section>
+
+<section class="slide center" data-seg="0" data-clock="1">
+  <div class="flapclock" aria-label="Klokken er 16:47">
+    <span class="ch">1</span><span class="ch">6</span><span class="ch sep">:</span><span class="ch">4</span><span class="ch">7</span><span class="ch sep">:</span><span class="ch" data-s="0">0</span><span class="ch" data-s="1">0</span>
+  </div>
+  <p class="lede" style="margin-top:56px">Fredag. Uværet «Timeout» stenger Kjevik og Gardermoen.</p>
+  <p class="lede step"><strong>40 000 passasjerer</strong> må ombookes. Alle åpner Rebookr samtidig.</p>
+</section>
+
+<section class="slide" data-seg="0">
+  <h2>Live: Rebookr v1 tar imot stormen</h2>
+  <div class="term" style="width:1100px"><span class="p">$</span> python -m legacy.storm
+<span class="d">⛈  Rebookr v1 – storm traffic incoming...</span>
+
+Passenger #1: My flight KRS to OSL tonight was cancelled.
+Rebookr: I'm sorry your trip has been disrupted. I found…</div>
+  <p class="small" style="margin-top:30px">Kontrolltårnet kjører på port 8787.</p>
+</section>
+
+<section class="slide" data-seg="0">
+  <div class="term" style="font-size:20px">  File "legacy/faq.py", line 7, in answer_faq
+    resp = client.messages.create(
+  File ".../anthropic/_base_client.py", line 1222, in request
+    raise self._make_status_error_from_response(response) from None
+<span class="e">anthropic.OverloadedError: Error code: 529 - {'type': 'error',
+  'error': {'type': 'overloaded_error', 'message': 'Overloaded'}}</span></div>
+  <h2 style="margin-top:44px">Rebookr er nede. 40 000 passasjerer venter.</h2>
+  <div class="call step" style="margin-top:6px">
+    <div class="ring" aria-hidden="true">✆</div>
+    <div><div style="font-family:var(--cond);font-weight:600;font-size:36px">Turid Turbulens ringer</div><div class="small">CTO, AsyncAir</div></div>
+  </div>
+</section>
+
+<section class="slide center" data-seg="0">
+  <p class="big-q">Hvor lang tid tar det å bytte LLM-leverandør?</p>
+</section>
+
+<section class="slide" data-seg="0">
+  <h2>Bevis A: <code class="inl" style="font-size:.8em">legacy/</code></h2>
+  <div class="cols wide-left">
+    <pre class="sm">import anthropic
+
+def answer_faq(question: str) -> str:
+    client = anthropic.Anthropic(...)
+    resp = client.messages.create(
+        model=<span class="hl">"claude-haiku-5-5"</span>,
+        max_tokens=500,
+        system="You are AsyncAir's FAQ bot.",
+        messages=[{"role": "user",
+                   "content": question}],
+    )
+    return <span class="hl">resp.content[0].text</span></pre>
+    <ul class="plain">
+      <li class="step"><strong>4 filer</strong> importerer SDK-en direkte</li>
+      <li class="step"><strong>4 steder</strong> med hardkodet modellnavn</li>
+      <li class="step"><strong>4 steder</strong> som antar Anthropics svarformat</li>
+      <li class="step"><strong>0</strong> timeouts, fallbacks eller <code class="inl">try</code></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ A2 · HVORFOR LOCK-IN (8–18) ============ -->
+<section class="slide" data-seg="1">
+  <h2>Gate A2: Hvorfor binder vi oss?</h2>
+  <div class="board" data-board="1"></div>
+</section>
+
+<section class="slide" data-seg="1">
+  <h2>Fem grunner til at lock-in gjør vondt</h2>
+  <div class="reasons">
+    <div><h3>Nedetid</h3><p>Alle leverandører har dårlige dager. Spørsmålet er om kunden merker det.</p></div>
+    <div><h3>Pris</h3><p>Prislistene endres ofte, i begge retninger. Kontrakten vår gjør det ikke på samme måte.</p></div>
+    <div><h3>Modeller pensjoneres</h3><p>Modellen dere testet mot i dag har en utløpsdato.</p></div>
+    <div><h3>Kapabilitet</h3><p>Den beste modellen til én oppgave er sjelden best på alle, og ledelsen skifter.</p></div>
+    <div style="grid-column:1 / -1"><h3>Dataresidens og avtaler</h3><p>Alle kunder spør hvor dataene behandles. De fleste har strenge krav til databehandling og eksisterende leverandøravtaler.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="1">
+  <h2>Abstraksjon er ikke gratis</h2>
+  <ul class="plain">
+    <li class="step"><strong>Laveste fellesnevner.</strong> Leverandørunike funksjoner er vanskelige å abstrahere uten å miste dem.</li>
+    <li class="step"><strong>Mer kode å eie.</strong> Hvert lag skal testes, dokumenteres og vedlikeholdes.</li>
+    <li class="step"><strong>Prompts flytter ikke på seg selv.</strong> Portabel kode betyr ikke portabel kvalitet.</li>
+  </ul>
+  <div class="callout step" style="margin-top:50px">
+    <p class="lede" style="margin:0">Målet er ikke null lock-in. Målet er at byttet blir en velbegrunnet beslutning.</p>
+  </div>
+</section>
+
+<section class="slide" data-seg="1">
+  <h2>Hvor mye abstraksjon er nok?</h2>
+  <div class="line-scale" aria-hidden="true"></div>
+  <div class="line-ends"><span>Én leverandør, full fart</span><span>Abstraher alt</span></div>
+  <ul class="plain" style="margin-top:46px">
+    <li class="step"><span class="pin-inline">1</span>Intern FAQ-bot for 200 ansatte, prototype på to uker</li>
+    <li class="step"><span class="pin-inline">2</span>Saksbehandlingsassistent for en kommune, skal leve i fem år</li>
+    <li class="step"><span class="pin-inline">3</span>Rebookr: 40 000 passasjerer i en storm</li>
+  </ul>
+  <div class="step" aria-label="Anbefalt plassering">
+    <span class="pin" style="left:calc(110px + 1380px * .14)">1</span>
+    <span class="pin" style="left:calc(110px + 1380px * .68)">3</span>
+    <span class="pin" style="left:calc(110px + 1380px * .82)">2</span>
+  </div>
+  <p class="lede step" style="margin-top:26px;max-width:none">Det som avgjør: levetid, nedetidskostnad, datakrav og volum.</p>
+  <p class="small step" style="margin-top:0;max-width:none">Minimum uansett: alle LLM-kall på ett sted, og modellnavn i config.</p>
+</section>
+
+<!-- ============ A3 · FINN FEILENE (18–33) ============ -->
+<section class="slide" data-seg="2">
+  <h2>Gate A3: Finn feilene</h2>
+  <div class="board" data-board="2"></div>
+</section>
+
+<section class="slide" data-seg="2">
+  <h2>Samme kall. Tre leverandører. Finn forskjellene.</h2>
+  <p class="lede">Lagvis. Skriv ned hver forskjell dere finner. Laget med flest riktige vinner.</p>
+  <div class="countdown-wrap" style="margin-top:50px"><span class="countdown" data-min="4">04:00</span><span class="small">Klikk for å starte</span></div>
+</section>
+
+<section class="slide code3" data-seg="2" style="padding-top:56px">
+  <div class="cols three">
+    <div><div class="label">Anthropic</div>
+<pre class="tiny">client = anthropic.Anthropic()
+
+resp = client.messages.create(
+  model="claude-sonnet-5-5",
+  max_tokens=800,
+  system="You are Rebookr.",
+  messages=[
+    {"role": "user",
+     "content": "Rebook me"}],
+  tools=[{
+    "name": "search_flights",
+    "description": "...",
+    "input_schema": {...}}],
+)
+
+call = resp.content[0]
+args = call.input
+
+
+# tilbake til modellen:
+{"role": "user", "content": [
+  {"type": "tool_result",
+   "tool_use_id": call.id,
+   "content": result}]}</pre></div>
+    <div><div class="label">OpenAI</div>
+<pre class="tiny">client = openai.OpenAI()
+
+resp = client.chat.completions.create(
+  model="gpt-5.5",
+  max_completion_tokens=800,
+  messages=[
+    {"role": "system",
+     "content": "You are Rebookr."},
+    {"role": "user",
+     "content": "Rebook me"}],
+  tools=[{"type": "function",
+    "function": {
+      "name": "search_flights",
+      "description": "...",
+      "parameters": {...}}}],
+)
+msg = resp.choices[0].message
+call = msg.tool_calls[0]
+args = json.loads(
+  call.function.arguments)
+
+# tilbake til modellen:
+{"role": "tool",
+ "tool_call_id": call.id,
+ "content": result}</pre></div>
+    <div><div class="label">Azure OpenAI</div>
+<pre class="tiny">client = openai.AzureOpenAI(
+  azure_endpoint=
+    "https://asyncair-eu"
+    ".openai.azure.com",
+  api_version="2024-10-21",
+)
+resp = client.chat.completions.create(
+  model="rebookr-smart",
+  max_completion_tokens=800,
+  messages=[...],
+  tools=[...],
+)
+
+# resten som OpenAI</pre></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="2">
+  <h2>Fasit</h2>
+  <ol class="diffs" style="margin:0;padding:0">
+    <li class="step"><strong>System-prompt:</strong> egen parameter hos Anthropic, første melding hos OpenAI</li>
+    <li class="step"><strong>Lengde:</strong> <code class="inl">max_tokens</code> er påkrevd hos Anthropic, OpenAI bruker <code class="inl">max_completion_tokens</code></li>
+    <li class="step"><strong>Verktøyskjema:</strong> <code class="inl">input_schema</code> mot <code class="inl">function.parameters</code></li>
+    <li class="step"><strong>Verktøyargumenter:</strong> ferdig dict mot en JSON-streng du må parse selv</li>
+    <li class="step"><strong>Verktøyresultat:</strong> blokk i en user-melding mot egen <code class="inl">role="tool"</code>-melding</li>
+    <li class="step"><strong>Svarformat:</strong> liste av typede blokker mot <code class="inl">choices[0].message</code></li>
+    <li class="step"><strong>Azure:</strong> <code class="inl">model</code> er ditt deployment-navn, pluss endepunkt og <code class="inl">api_version</code></li>
+    <li class="step"><strong>Feil:</strong> 529 Overloaded mot 503, og ulike felter i feilmeldingen</li>
+  </ol>
+</section>
+
+<section class="slide" data-seg="2">
+  <h2>Alle kan det. Ingen gjør det likt.</h2>
+  <table class="matrix">
+    <thead><tr><th></th><th>Anthropic</th><th>OpenAI</th><th>Azure OpenAI</th></tr></thead>
+    <tbody>
+      <tr><td>Verktøykall</td><td><code class="inl">tool_use</code>-blokker, argumenter som objekt</td><td><code class="inl">tool_calls</code>, argumenter som JSON-streng</td><td>Som OpenAI</td></tr>
+      <tr><td>Strømming</td><td>Navngitte SSE-hendelser per blokk</td><td>Delta-biter; verktøykall kommer i fragmenter</td><td>Som OpenAI</td></tr>
+      <tr><td>Bilder</td><td><code class="inl">image</code>-blokk med base64</td><td><code class="inl">image_url</code>, ofte som data-URL</td><td>Som OpenAI, avhengig av deployment</td></tr>
+      <tr><td>Feil underveis</td><td><code class="inl">error</code>-hendelse midt i strømmen</td><td>Feil-chunk midt i strømmen</td><td>Som OpenAI, pluss innholdsfilter (HTTP 400)</td></tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top:28px">Alle tre støtter også strukturert JSON-output, med ulike parametere.</p>
+</section>
+
+<section class="slide" data-seg="2">
+  <h2>Azure er ikke en modell</h2>
+  <div class="cols two">
+    <div>
+      <p class="lede">Azure er et hosting- og avtalelag rundt modellene.</p>
+      <p class="muted">Kundene velger det sjelden på grunn av modellen. De velger det fordi Microsoft-avtalen allerede er signert.</p>
+    </div>
+    <ul class="plain tight">
+      <li><strong>Region:</strong> dere velger hvor dataene behandles, for eksempel i EU</li>
+      <li><strong>Deployment:</strong> <code class="inl">model</code> er navnet dere ga deploymenten</li>
+      <li><strong>Kvoter:</strong> settes per deployment, ikke per konto</li>
+      <li><strong>Innholdsfilter:</strong> et ekstra lag som kan avvise forespørsler</li>
+      <li><strong>Katalogen:</strong> har flere modellfamilier enn OpenAI</li>
+      <li><strong>AI Gateway:</strong> kundens API Management foran modellene, med egne nøkler, kvoter og logging</li>
+    </ul>
+  </div>
+</section>
+<!-- ============ B1 · PLAN B – I KODE (33–55) ============ -->
+<section class="slide" data-seg="3">
+  <h2>Gate B1: Plan B – i kode</h2>
+  <div class="board" data-board="3"></div>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Arkitekturen</h2>
+  <svg viewBox="0 0 1380 560" width="1380" height="560" role="img" aria-label="Agent, model-ruter, tre adaptere og leverandørene" style="font-family:var(--cond)">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/></marker></defs>
+    <g style="font-size:30px;font-weight:600">
+      <rect x="0" y="210" width="230" height="110" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+      <text x="115" y="262" text-anchor="middle" style="fill:var(--ink)">agent.py</text>
+      <text x="115" y="296" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">null leverandører</text>
+
+      <rect x="330" y="190" width="290" height="150" rx="12" style="fill:var(--surface);stroke:var(--signal);stroke-width:4"/>
+      <text x="475" y="252" text-anchor="middle" style="fill:var(--ink)">ModelRouter</text>
+      <text x="475" y="288" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">ruter · fallback</text>
+      <text x="475" y="316" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">circuit breaker</text>
+
+      <rect x="350" y="400" width="250" height="70" rx="10" style="fill:var(--code-bg)"/>
+      <text x="475" y="445" text-anchor="middle" style="fill:var(--ink);font-family:var(--mono);font-size:22px;font-weight:400">config.toml</text>
+
+      <rect x="705" y="40" width="340" height="100" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+      <text x="875" y="100" text-anchor="middle" style="fill:var(--ink)">AnthropicProvider</text>
+      <rect x="705" y="215" width="340" height="100" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+      <text x="875" y="275" text-anchor="middle" style="fill:var(--ink)">OpenAIProvider</text>
+      <rect x="705" y="390" width="340" height="100" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
+      <text x="875" y="450" text-anchor="middle" style="fill:var(--ink)">AzureOpenAIProvider</text>
+      <path d="M875 320 L875 385" style="stroke:var(--muted);stroke-width:2;stroke-dasharray:6 6"/>
+      <text x="895" y="362" style="fill:var(--muted);font-size:20px;font-weight:500">arver</text>
+
+      <text x="1130" y="98" style="fill:var(--ink)">Anthropic API</text>
+      <text x="1130" y="273" style="fill:var(--ink)">OpenAI API</text>
+      <text x="1130" y="448" style="fill:var(--ink)">Azure (EU)</text>
+    </g>
+    <g style="stroke:var(--muted);stroke-width:2.5;fill:none" marker-end="url(#arr)">
+      <path d="M230 265 L325 265"/>
+      <path d="M620 240 L700 95"/><path d="M620 265 L700 265"/><path d="M620 290 L700 435"/>
+      <path d="M1045 90 L1120 90"/><path d="M1045 265 L1120 265"/><path d="M1045 440 L1120 440"/>
+      <path d="M475 395 L475 345"/>
+    </g>
+    <text x="0" y="530" style="fill:var(--muted);font-size:24px">Til venstre for adapterne finnes bare nøytrale typer (types.py). Til høyre finnes bare leverandørformat.</text>
+  </svg>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Den nøytrale kontrakten</h2>
+  <div class="cols wide-left">
+<pre class="sm">@dataclass
+class ChatRequest:
+    messages: list[Message]
+    system: str | None = None
+    tools: list[ToolSpec] = ...
+    max_tokens: int = 1024
+
+@dataclass
+class ChatResponse:
+    text: str
+    tool_calls: list[ToolCall]
+    stop_reason: StopReason   <span class="c"># "end" | "tool_use" | ...</span>
+    usage: Usage
+    provider: str
+    model: str</pre>
+    <div>
+      <p>Ingenting her vet hvem som svarer.</p>
+      <p class="muted">Adapterne oversetter begge veier, og gjør leverandørfeil om til våre egne: <code class="inl">ProviderUnavailable</code>, <code class="inl">RateLimited</code>, <code class="inl">BadRequest</code>.</p>
+      <p class="muted">Bare de to første får ruteren til å prøve neste leverandør.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Øvelse 1: Fullfør OpenAI-adapteren</h2>
+  <div class="cols wide-left">
+    <div>
+      <p>Anthropic er nede og Rebookr har ingen reserve. Åpne <code class="inl">rebookr/llm/openai_provider.py</code> og løs TODO 1, 2 og 3.</p>
+      <div class="term" style="font-size:22px;margin:26px 0"><span class="p">$</span> pytest tests/test_openai_provider.py -v</div>
+      <p class="small">Står dere fast: <code class="inl">bash scripts/reveal_solutions.sh</code></p>
+    </div>
+    <div>
+      <div class="countdown-wrap"><span class="countdown" data-min="15">15:00</span></div>
+      <ul class="plain small" style="margin-top:30px">
+        <li>TODO 1: hvor bor system-prompten hos OpenAI?</li>
+        <li>TODO 2: ett verktøyresultat blir én melding</li>
+        <li>TODO 3: <code class="inl">arguments</code> er en streng</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Hvorfor ble Azure-testen grønn?</h2>
+<pre class="sm" style="width:1150px">class AzureOpenAIProvider(OpenAIProvider):
+    name = "azure"
+
+    def __init__(self, api_key, endpoint, api_version, ...):
+        self.client = openai.AzureOpenAI(
+            api_key=api_key,
+            azure_endpoint=endpoint,
+            api_version=api_version,
+            max_retries=0,
+        )</pre>
+  <p class="lede step" style="margin-top:40px">Når én adapter finnes, er den neste ofte bare en konstruktør.</p>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Model-ruteren</h2>
+  <div class="cols two">
+<pre class="sm">[routes.faq]
+chain = ["anthropic:fast", "openai:fast",
+         "azure:fast"]
+
+[routes.rebooking]
+chain = ["anthropic:smart", "openai:smart",
+         "azure:smart"]
+
+[routes.vision]
+chain = ["openai:smart", "anthropic:smart"]
+
+[routes.eu_only]
+chain = ["azure:smart"]</pre>
+    <div>
+      <p>Koden ber om <code class="inl">fast</code> eller <code class="inl">smart</code>. Aldri om et modellnavn.</p>
+      <ul class="plain small">
+        <li><strong>Etter oppgave:</strong> billig modell til FAQ, sterk modell til vanskelig ombooking</li>
+        <li><strong>Etter pris:</strong> rekkefølgen i kjeden er en kostnadsbeslutning</li>
+        <li><strong>Etter krav:</strong> persondata kan låses til en EU-region</li>
+        <li><strong>Etter evne:</strong> forespørsler med bilde hopper over modeller uten vision</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Bygge selv, eller kjøpe?</h2>
+  <table class="matrix">
+    <thead><tr><th></th><th>Hva det er</th><th>Passer når</th></tr></thead>
+    <tbody>
+      <tr><td>Egen tynn abstraksjon</td><td>Det dere nettopp bygde</td><td>Dere vil eie kontrakten og trenger få leverandører</td></tr>
+      <tr><td>LiteLLM</td><td>Python-bibliotek og proxy med felles API mot mange leverandører</td><td>Dere vil ha bredde raskt og kan leve med deres abstraksjon</td></tr>
+      <tr><td>Vercel AI SDK</td><td>TypeScript-SDK med felles grensesnitt</td><td>Frontend- og Node-tunge team</td></tr>
+      <tr><td>Skyplattformer</td><td>Bedrock, Foundry, Vertex: flere modellfamilier bak én konto</td><td>Kunden har allerede skyavtalen</td></tr>
+    </tbody>
+  </table>
+  <p class="lede step" style="margin-top:36px">Dere bytter én lock-in mot en annen. Gjør det med vilje.</p>
+</section>
+
+<section class="slide" data-seg="3">
+  <h2>Samme mønster i TypeScript</h2>
+  <div class="cols wide-left">
+<pre class="sm">export type Part =
+  | { type: "text"; text: string }
+  | { type: "image"; mediaType: string;
+      dataB64: string }
+  | { type: "tool_call"; id: string;
+      name: string;
+      arguments: Record&lt;string, unknown&gt; }
+  | { type: "tool_result";
+      toolCallId: string; content: string };
+
+export interface LLMProvider {
+  chat(req: ChatRequest, model: string)
+    : Promise&lt;ChatResponse&gt;;
+  stream(req: ChatRequest, model: string)
+    : AsyncGenerator&lt;StreamEvent&gt;;
+}</pre>
+    <div>
+      <p>Dataklasser blir diskriminerte unioner. Resten er det samme.</p>
+      <p class="muted">Python og TypeScript leser samme <code class="inl">config.toml</code>.</p>
+      <div class="term" style="font-size:20px;margin-top:20px"><span class="p">$</span> cd ts && npm run demo</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ B2 · RØD KNAPP (55–63) ============ -->
+<section class="slide" data-seg="4">
+  <h2>Gate B2: Rød knapp, runde to</h2>
+  <div class="board" data-board="4"></div>
+</section>
+
+<section class="slide" data-seg="4">
+  <h2>Øvelse 2: Overlev stormen</h2>
+  <div class="term" style="font-size:24px;line-height:1.7"><span class="p">$</span> export MOCK_URL="<span contenteditable="true" spellcheck="false" data-key="tower" class="g">https://din-codespace-8787.app.github.dev</span>"
+<span class="p">$</span> export ASYNCAIR_TEAM="lagnavn"
+<span class="p">$</span> python -m rebookr storm</div>
+  <div class="cols two" style="margin-top:40px">
+    <p>Når den røde knappen trykkes: holder Rebookr seg oppe? Følg med på resultattavla.</p>
+    <p class="muted small">Prøv i <code class="inl">config.toml</code>: endre rekkefølgen i kjeden, senk <code class="inl">breaker_failures</code>, sett <code class="inl">retries_per_provider = 1</code>.</p>
+  </div>
+</section>
+
+<section class="slide" data-seg="4">
+  <h2>Fallback, lag for lag</h2>
+  <ol class="ladder" style="padding-left:40px;margin:0">
+    <li><b>Timeout</b>En treg leverandør er en nede leverandør. Sett grensen bevisst.</li>
+    <li><b>Retry med backoff</b>Én gang til på samme leverandør, med økende venting. Bare for feil som kan gå over.</li>
+    <li><b>Neste i kjeden</b>Videre til neste leverandør. Aldri ved 400: da er feilen vår.</li>
+    <li><b>Circuit breaker</b>Etter N feil på rad slutter vi å banke på en stund.</li>
+    <li><b>Grasiøs degradering</b>Alt er nede? Et ærlig svar og en menneskelig agent slår en stack trace.</li>
+  </ol>
+</section>
+
+<section class="slide" data-seg="4">
+  <h2>Når strømmen ryker midt i svaret</h2>
+  <div class="passenger" style="max-width:1150px">Under EU-reglene kan du ha rett på assistanse og i noen tilfeller kompensasjon, men stormer regnes vanligvis som ekstraord<span class="dim-red">▌</span></div>
+  <p>Fallback er bare trygt <strong>før første token</strong>. Etterpå ville en ny leverandør limt et nytt svar på det gamle.</p>
+  <ul class="plain small step" style="margin-top:20px">
+    <li>Vis «forbindelsen brøt» og la brukeren prøve igjen</li>
+    <li>Kjør hele runden på nytt uten strømming</li>
+    <li>Hold igjen de første tokenene til du vet at strømmen er stabil</li>
+  </ul>
+</section>
+
+<section class="slide center" data-seg="4">
+  <p class="big-q">Fallbacken virket.<br>Men ble svarene like gode?</p>
+</section>
+
+<!-- ============ B3 · BLINDTEST (63–80) ============ -->
+<section class="slide" data-seg="5">
+  <h2>Gate B3: Blindtest</h2>
+  <div class="board" data-board="5"></div>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Blindtest</h2>
+  <div class="cols wide-left" style="align-items:center">
+    <div>
+      <p class="lede">Tre passasjerer. Tre svar hver. Én leverandør bak hvert svar, men dere vet ikke hvilken.</p>
+      <p>Stem på svaret du ville ønsket deg som passasjer.</p>
+      <p style="margin-top:34px">Skann koden, eller gå til:</p>
+      <p class="vote-url" style="font-family:var(--mono);font-size:22px;color:var(--amber);word-break:break-all;max-width:none"></p>
+    </div>
+    <div class="qr-box" aria-label="QR-kode til stemmesiden"><div id="vote-qr"></div></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="5">
+  <div class="passenger">«This is the THIRD time AsyncAir has cancelled on me. Absolutely useless. I need to be in Oslo tomorrow morning, I'm in Bergen (BGO).»</div>
+  <div class="cols three">
+    <div><div class="answer-letter">A</div><div class="answer"><p>I understand — repeated cancellations are exhausting, especially when you need to be in Oslo tomorrow morning.</p><p>Available BGO → OSL options are:</p><p>• AX275, departs 18 Oct 18:05, 6 seats left
+• AX339, departs 18 Oct 19:40, 6 seats left
+• AX210, departs 19 Oct 07:15, 9 seats left</p><p>If you want to arrive by tomorrow morning, AX275 or AX339 tonight are safest. Please send your 6-character booking reference and which flight you choose, and I’ll rebook you.</p></div></div>
+    <div><div class="answer-letter">B</div><div class="answer"><p>I’m sorry for the disruption caused by the storm. Let’s get you to Oslo.</p><p>Here are the next available BGO–OSL options:
+• AX275 departing today 18:05
+• AX339 departing today 19:40
+• AX210 departing tomorrow 07:15</p><p>Tell me which flight you want and your 6‑character booking reference, and I’ll rebook you right away.</p><p>If you need to overnight, we can provide meal and hotel vouchers. Cash compensation is unlikely in storms, but rebooking, meals and accommodation are covered. If you need special assistance or to discuss other options, I can connect you to a human agent.</p></div></div>
+    <div><div class="answer-letter">C</div><div class="answer"><p>I'm sorry about the storm. Three cancellations is frustrating, and I understand why you're angry. Here are the Bergen to Oslo options I can see:</p><p>• AX275, today 18:05 (6 seats left)
+• AX339, today 19:40 (6 seats left)
+• AX210, tomorrow 07:15 (9 seats left)</p><p>AX210 would get you to Oslo tomorrow morning. The two evening flights would get you there tonight. If you stay overnight, meals and a hotel are covered.</p><p>Tell me which flight you want and send your 6-character booking reference. I'll rebook you right away. I can also connect you with a human agent if you'd like.</p></div></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="5">
+  <div class="passenger">«Will I get 600 euros compensation for my cancelled flight? I read about EU261.»</div>
+  <div class="cols three">
+    <div><div class="answer-letter">A</div><div class="answer"><p>I'm sorry about the cancellation. I know it's a stressful situation.</p><p>I can't promise compensation, and I can't give you an amount. Storms usually count as extraordinary circumstances under EU261, so cash compensation is unlikely for this cancellation. What AsyncAir does cover is:</p><p>• Meals and refreshments while you wait
+• A hotel, if you need to stay overnight
+• Rebooking onto another flight</p><p>If you'd like to dispute this, I can connect you with a human agent to review your case.</p><p>If you'd like me to look for another flight, tell me your departure and arrival airports. For example, OSL to BGO.</p></div></div>
+    <div><div class="answer-letter">B</div><div class="answer"><p>I understand this is frustrating, especially during the storm disruption.</p><p>Under EU261, cash compensation is usually not paid when cancellations are caused by extraordinary circumstances like severe weather. So €600 compensation is unlikely if the storm caused the cancellation.</p><p>You are still entitled to care while you wait, such as:
+• Rebooking to your destination
+• Meals/refreshments as appropriate
+• Hotel and transport if an overnight stay is needed</p><p>If you share your route and booking reference, I can help look for rebooking options.</p></div></div>
+    <div><div class="answer-letter">C</div><div class="answer"><p>I’m sorry your flight was cancelled due to the storm. Under EU261, severe weather is usually considered an extraordinary circumstance, so cash compensation is unlikely. You’re entitled to rebooking at the earliest opportunity, plus reasonable meals, hotel if overnight, and transport to/from the hotel—please keep receipts.</p><p>If you’d like, I can search the next available flights now; share your origin/destination or booking reference. Alternatively, I can connect you with a human agent to review your situation in detail.</p></div></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="5">
+  <div class="passenger">«Hei, flyet mitt fra TRD til OSL er kansellert og jeg har to små barn med meg. Hva gjør jeg nå?»</div>
+  <div class="cols three">
+    <div><div class="answer-letter">A</div><div class="answer"><p>Hei. Stormen har dessverre innstilt mange avganger. Her er ledige TRD–OSL:
+• AX328 18. okt 18:05
+• AX715 19. okt 06:30
+• AX886 19. okt 09:50</p><p>Svar med ønsket flight og 6‑tegns bookingreferanse, så rebooker jeg.</p><p>Praktisk: Hent matkuponger ved servicedesk. Trengs overnatting, ordner vi hotell. Vi sørger for seter samlet og tidlig boarding for familier – si fra ved gate.</p><p>Merk: Storm regnes normalt som ekstraordinær; kontantkompensasjon er lite sannsynlig.</p></div></div>
+    <div><div class="answer-letter">B</div><div class="answer"><p>Beklager kanselleringen, det er tøft med to små barn. Dette er alternativene fra TRD til OSL:</p><p>• AX328: 18. oktober kl. 18:05 (7 seter igjen)
+• AX715: 19. oktober kl. 06:30 (2 seter igjen)
+• AX886: 19. oktober kl. 09:50 (2 seter igjen)</p><p>Hvis du velger en avgang i morgen, dekker AsyncAir hotell og måltider. Behold kvitteringene.</p><p>Det er få seter igjen på de to siste. Hvor mange er dere som reiser? Si hvilken avgang du vil ha, og send meg bookingreferansen din (6 tegn), så ordner jeg ombookingen.</p></div></div>
+    <div><div class="answer-letter">C</div><div class="answer"><p>Jeg skjønner, dette er ekstra krevende med små barn. Stormen har dessverre rammet mange avganger.</p><p>Jeg kan hjelpe deg å booke om. Tilgjengelige alternativer TRD–OSL:</p><p>• AX328, avgang 18. okt. 18:05, 7 seter igjen
+• AX715, avgang 19. okt. 06:30, 2 seter igjen
+• AX886, avgang 19. okt. 09:50, 2 seter igjen</p><p>Velg en av disse, og send bookingreferansen din på 6 tegn, så kan jeg booke dere om. Hvis dere må vente lenge, har dere rett på mat/drikke, og hotell ved behov. Cash-kompensasjon er vanligvis ikke aktuelt ved storm.</p></div></div>
+  </div>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Avsløringen</h2>
+  <table class="matrix" style="width:1100px;font-size:30px">
+    <thead><tr><th></th><th>A</th><th>B</th><th>C</th></tr></thead>
+    <tbody>
+      <tr class="step"><td>Runde 1</td><td>OpenAI<br><span class="small">gpt-5.5</span></td><td>Azure<br><span class="small">gpt-5</span></td><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td></tr>
+      <tr class="step"><td>Runde 2</td><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td><td>OpenAI<br><span class="small">gpt-5.5</span></td><td>Azure<br><span class="small">gpt-5</span></td></tr>
+      <tr class="step"><td>Runde 3</td><td>Azure<br><span class="small">gpt-5</span></td><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td><td>OpenAI<br><span class="small">gpt-5.5</span></td></tr>
+    </tbody>
+  </table>
+  <p class="lede step" style="margin-top:40px">Var dere enige? Og ville dere satset et kundeoppdrag på den magefølelsen?</p>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Magefølelse er ikke måling</h2>
+  <ul class="plain ladder">
+    <li><b>Assertions</b>Deterministiske sjekker: riktig verktøy, riktig språk, ingen lovte beløp, under 120 ord. Billig og objektivt.</li>
+    <li class="step"><b>LLM som dommer</b>En modell scorer hvert svar 1–5 mot en rubrikk. Skalerer, men har egne preferanser.</li>
+    <li class="step"><b>Driftstall</b>Latens, kostnad per samtale, feilrate. Ofte det som avgjør.</li>
+    <li class="step"><b>Mennesker</b>Stikkprøver for å kalibrere alt over. Slik dere nettopp gjorde.</li>
+  </ul>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Et golden set er bare en fil</h2>
+<pre class="sm" style="white-space:pre-wrap">{"id": "compensation_amount",
+ "input": "Will I get 600 euros compensation for my cancelled flight?",
+ "must_include_any": ["extraordinary"],
+ "must_not_include": ["you will receive 600"],
+ "language": "en",
+ "max_words": 150,
+ "rubric": "Explains extraordinary circumstances, mentions that care is covered, never promises an amount."}</pre>
+  <div class="term" style="font-size:22px;margin-top:30px"><span class="p">$</span> python -m evals.run --judge openai</div>
+  <p class="small" style="margin-top:20px">12 caser: sinte passasjerer, norsk, prompt injection, kompensasjonsfeller, oppgaver utenfor scope.</p>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Dommeren har en favoritt</h2>
+  <p class="lede">En modell som dømmer egne svar, har en tendens til å like sin egen stil.</p>
+  <div class="cols two" style="margin-top:20px">
+    <table class="matrix" style="font-size:28px">
+      <thead><tr><th>Lørdag</th><th>Dommer: OpenAI</th><th>Dommer: Anthropic</th></tr></thead>
+      <tbody>
+        <tr><td>Anthropic</td><td>4,50</td><td><strong>4,25</strong></td></tr>
+        <tr><td>OpenAI</td><td><strong>4,92</strong></td><td>4,08</td></tr>
+        <tr><td>Azure</td><td>4,25</td><td>3,50</td></tr>
+      </tbody>
+    </table>
+    <ul class="plain step" style="font-size:28px">
+      <li>Samme svar. Ny dommer. Ny vinner.</li>
+      <li>Bruk en annen leverandør som dommer enn den som testes</li>
+      <li>Kalibrer mot mennesker: stemte dommeren som dere?</li>
+    </ul>
+  </div>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Å flytte en prompt</h2>
+  <div class="cols two">
+<pre class="tiny">&lt;instructions&gt;
+- Acknowledge the disruption briefly
+  and sincerely, once.
+- Use the search_flights tool before
+  suggesting any alternative flight.
+- Keep answers under 120 words.
+&lt;/instructions&gt;
+
+&lt;tone&gt;
+Calm, warm, concrete.
+&lt;/tone&gt;</pre>
+<pre class="tiny"># Rules
+1. Acknowledge the disruption once,
+   briefly and sincerely.
+2. ALWAYS call `search_flights` before
+   suggesting an alternative.
+3. Maximum 120 words per reply.
+
+# Output format
+Plain text only. No markdown headings.
+
+# Tone
+Calm, warm and concrete.</pre>
+  </div>
+  <p class="lede" style="margin-top:36px">Mål før. Flytt. Mål etter. Juster. Mål igjen.</p>
+  <p class="muted">Lørdag på OpenAI: Claude-prompten 12/12 og 4,92, den portable 12/12 og 4,83. Prompten tålte flyttingen, men det visste vi først etter å ha målt.</p>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Lørdagens tall</h2>
+  <table class="matrix" style="font-size:28px">
+    <thead><tr><th>Leverandør</th><th>Assertions</th><th>Dommer (1–5)</th><th>p50 latens</th><th>Kost per 100 samtaler</th></tr></thead>
+    <tbody>
+      <tr><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td><td>12/12</td><td>4,50</td><td>3,4 s</td><td>–</td></tr>
+      <tr><td>OpenAI<br><span class="small">gpt-5.5</span></td><td>12/12</td><td>4,92</td><td>3,9 s</td><td>–</td></tr>
+      <tr><td>Azure<br><span class="small">gpt-5</span></td><td>10/12</td><td>4,25</td><td>16,1 s</td><td>–</td></tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top:24px">Fra lørdagens kjøring: 12 caser, prompt rebookr.claude.md, dommer OpenAI (som også dømmer sine egne svar). Kost vises ikke fordi prisene ikke er verifisert.</p>
+</section>
+
+<!-- ============ C1 · TILBAKE TIL FREDAG (80–90) ============ -->
+<section class="slide" data-seg="6">
+  <h2>Gate C1: Tilbake til fredag</h2>
+  <div class="board" data-board="6"></div>
+</section>
+
+<section class="slide" data-seg="6">
+  <h2>Fredag 16:47, igjen</h2>
+  <p class="lede">Tavla sa: <span contenteditable="true" data-key="guess" style="color:var(--amber)">«to uker»</span>. Nå:</p>
+<pre style="font-size:26px;margin-top:20px;width:1250px">[routes.rebooking]
+<span class="del">- chain = ["anthropic:smart", "openai:smart", "azure:smart"]</span>
+<span class="add">+ chain = ["openai:smart", "anthropic:smart", "azure:smart"]</span></pre>
+  <p class="lede step" style="margin-top:40px">Én linje. Ingen deploy av ny kode. Og et golden set som forteller om det var lurt.</p>
+</section>
+
+<section class="slide" data-seg="6">
+  <h2>Øvelse 3: Én setning</h2>
+  <p>Tenk på prosjektet du sitter på nå. Fullfør:</p>
+  <div class="callout" style="margin:30px 0">
+    <p class="lede" style="margin:0">«I [prosjekt] velger vi [grad av lock-in] fordi [grunn], og vi vet at det var riktig når [måling].»</p>
+  </div>
+  <div class="countdown-wrap"><span class="countdown" data-min="3">03:00</span><span class="small">To frivillige leser opp.</span></div>
+</section>
+
+<section class="slide" data-seg="6">
+  <h2>Det dere tar med dere</h2>
+  <ul class="plain" style="font-size:34px">
+    <li><span class="ok">✓</span> En leverandørabstraksjon i Python og TypeScript</li>
+    <li><span class="ok">✓</span> Avveiningene mellom Anthropic, OpenAI og Azure</li>
+    <li><span class="ok">✓</span> Hvordan man flytter et prompt-sett uten å miste kvalitet</li>
+    <li><span class="ok">✓</span> Hvordan man måler kvalitetsforskjeller objektivt</li>
+  </ul>
+</section>
+
+<section class="slide center" data-seg="6" style="align-items:center">
+  <svg width="460" height="460" viewBox="0 0 200 200" role="img" aria-label="Merke: Licensed to Switch, AsyncAir Flight Academy">
+    <defs>
+      <path id="arcTop" d="M 26 100 A 74 74 0 0 1 174 100"/>
+      <path id="arcBot" d="M 22 100 A 78 78 0 0 0 178 100"/>
+    </defs>
+    <circle cx="100" cy="100" r="96" style="fill:var(--board)"/>
+    <circle cx="100" cy="100" r="88" style="fill:none;stroke:var(--signal);stroke-width:2"/>
+    <circle cx="100" cy="100" r="58" style="fill:none;stroke:var(--signal);stroke-width:1;opacity:.5"/>
+    <text style="fill:#FFB23F;font-family:var(--cond);font-weight:700;font-size:16px;letter-spacing:1.5px"><textPath href="#arcTop" startOffset="50%" text-anchor="middle">LICENSED TO SWITCH</textPath></text>
+    <text style="fill:#8FA0B8;font-family:var(--cond);font-weight:600;font-size:10.5px;letter-spacing:1.5px"><textPath href="#arcBot" startOffset="50%" text-anchor="middle">ASYNCAIR FLIGHT ACADEMY 2026</textPath></text>
+    <svg x="62" y="62" width="76" height="76" viewBox="0 0 120 120" style="color:#E9EEF5"><use href="#mark"/></svg>
+  </svg>
+  <p class="lede" style="margin-top:40px;text-align:center">Merket får alle med grønne tester.</p>
+</section>
+
+<section class="slide center nobar" data-seg="6">
+  <div class="logo-lockup">
+    <svg class="mark" width="150" height="150" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>
+    <div>
+      <div class="wordmark" style="font-size:120px">Takk for turen</div>
+      <div style="font-family:var(--cond);font-size:38px;color:var(--muted)">Your flight will resolve eventually.</div>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:70px">Repo: <span contenteditable="true" spellcheck="false" data-key="repo" style="color:var(--amber)">github.com/…/asyncair-rebookr</span></p>
+</section>
+
+<div id="bar"><span class="where" aria-hidden="true"></span><span class="track" aria-hidden="true"></span><button class="timer-link" type="button" title="Åpne timer i nytt vindu" aria-label="Åpne timer i nytt vindu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/></svg></button><span class="num" aria-hidden="true"></span></div>
+</div>
+</div>
+<div id="goto" role="status" aria-live="polite"></div>
+<div id="blackout"></div>
+<div id="help" role="dialog" aria-label="Tastatur">
+  <kbd>→</kbd> <kbd>Space</kbd> <kbd>PgDn</kbd> neste · <kbd>←</kbd> <kbd>PgUp</kbd> forrige<br>
+  <kbd>F</kbd> fullskjerm · <kbd>L</kbd> lyst/mørkt · <kbd>B</kbd> svart skjerm<br>
+  Klokkeikonet nede til høyre åpner timeren i nytt vindu · <kbd>?</kbd> denne hjelpen<br>
+  Slidenummer + <kbd>Enter</kbd> gå til slide · <kbd>Esc</kbd> avbryt
+</div>
+<script>
+/* qrcodejs 1.0.0 (MIT, davidshimjs) - inlined so the QR code also works offline */
+var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();
+</script>
+<script>
+(() => {
+  const SEGMENTS = [
+    { gate: "A1", name: "Fredag 16:47",       start: 0,  min: 8 },
+    { gate: "A2", name: "Hvorfor lock-in",    start: 8,  min: 10 },
+    { gate: "A3", name: "Finn feilene",       start: 18, min: 15 },
+    { gate: "B1", name: "Plan B – i kode",    start: 33, min: 22 },
+    { gate: "B2", name: "Rød knapp",          start: 55, min: 8 },
+    { gate: "B3", name: "Blindtest",          start: 63, min: 17 },
+    { gate: "C1", name: "Tilbake til fredag", start: 80, min: 10 },
+  ];
+  const store = {
+    get(k) { try { return localStorage.getItem("asyncair-deck:" + k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem("asyncair-deck:" + k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem("asyncair-deck:" + k); } catch (e) {} },
+  };
+  /* set by the control tower when it serves this deck on its admin port (/deck) */
+  const TOWER = window.ASYNCAIR_TOWER || null;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const stage = document.getElementById("stage");
+  const slides = [...document.querySelectorAll(".slide")];
+  let idx = 0, step = 0;
+  /* a leading .blank slide is "slide 0", so the other slides keep their numbers */
+  const OFF = slides[0].classList.contains("blank") ? 1 : 0;
+  const num = i => i + 1 - OFF, at = n => n - 1 + OFF, TOTAL = slides.length - OFF;
+
+  /* ---------- scale stage to window ---------- */
+  function fit() {
+    const s = Math.min(window.innerWidth / 1600, window.innerHeight / 900);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  window.addEventListener("resize", fit); fit();
+
+  /* ---------- theme ---------- */
+  const savedTheme = store.get("theme");
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+  function toggleTheme() {
+    const dark = document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+    store.set("theme", document.documentElement.dataset.theme);
+  }
+
+  /* ---------- split-flap boards ---------- */
+  const FLAP = " ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ0123456789:+-";
+  const pad = (s, n) => (s + " ".repeat(n)).slice(0, n);
+  function buildBoard(el) {
+    const cur = +el.dataset.board;
+    const head = `<div class="head"><span>TID</span><span>DESTINASJON</span><span>GATE</span><span>STATUS</span></div>`;
+    const rows = SEGMENTS.map((s, i) => {
+      const status = i < cur ? "AVGÅTT" : i === cur ? "BOARDING" : "I RUTE";
+      const cls = i < cur ? "past" : i === cur ? "now" : "";
+      const cells = [["T+" + String(s.start).padStart(2, "0"), 5], [s.name.toUpperCase(), 20], [s.gate, 3], [status, 9]];
+      return `<div class="row ${cls}">` + cells.map(([t, n], j) =>
+        `<span class="cellset${j === 3 ? " status" : ""}">` + [...pad(t, n)].map(c => `<span class="ch" data-final="${c}">${c === " " ? "&nbsp;" : c}</span>`).join("") + `</span>`
+      ).join("") + `</div>`;
+    }).join("");
+    el.innerHTML = head + rows;
+  }
+  function flap(el) {
+    if (reduced) return;
+    const cells = [...el.querySelectorAll(".ch")];
+    const t0 = performance.now();
+    cells.forEach((c, i) => { c.dataset.until = 250 + (i % 37) * 22 + Math.random() * 300; });
+    function tick(now) {
+      let busy = false;
+      for (const c of cells) {
+        const fin = c.dataset.final;
+        if (now - t0 < +c.dataset.until) {
+          busy = true;
+          c.textContent = fin === " " ? " " : FLAP[Math.floor(Math.random() * FLAP.length)];
+        } else if (c.textContent !== fin) {
+          c.innerHTML = fin === " " ? "&nbsp;" : fin;
+        }
+      }
+      if (busy && slides[idx].contains(el)) requestAnimationFrame(tick);
+      else cells.forEach(c => { c.innerHTML = c.dataset.final === " " ? "&nbsp;" : c.dataset.final; });
+    }
+    requestAnimationFrame(tick);
+  }
+  document.querySelectorAll(".board").forEach(buildBoard);
+
+  /* ---------- 16:47 clock ---------- */
+  let clockTimer = null;
+  function startClock(slide) {
+    stopClock();
+    const s0 = slide.querySelector('[data-s="0"]'), s1 = slide.querySelector('[data-s="1"]');
+    let sec = 0;
+    const set = (el, v) => { if (el.textContent !== v) { el.textContent = v; if (!reduced) { el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip"); } } };
+    set(s0, "0"); set(s1, "0");
+    clockTimer = setInterval(() => { sec = (sec + 1) % 60; const t = String(sec).padStart(2, "0"); set(s0, t[0]); set(s1, t[1]); }, 1000);
+  }
+  function stopClock() { if (clockTimer) clearInterval(clockTimer); clockTimer = null; }
+
+  /* ---------- countdowns ---------- */
+  document.querySelectorAll(".countdown").forEach(el => {
+    let left = +el.dataset.min * 60, timer = null;
+    const render = () => { el.textContent = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`; };
+    el.addEventListener("click", e => {
+      e.stopPropagation();
+      if (el.classList.contains("done")) { el.classList.remove("done"); left = +el.dataset.min * 60; render(); return; }
+      if (timer) { clearInterval(timer); timer = null; return; }
+      timer = setInterval(() => { left--; render(); if (left <= 0) { clearInterval(timer); timer = null; el.classList.add("done"); } }, 1000);
+    });
+    el.setAttribute("role", "timer"); el.title = "Klikk: start / pause. Klikk når ferdig: nullstill.";
+  });
+
+  /* ---------- editable fields persist ---------- */
+  document.querySelectorAll("[data-key]").forEach(el => {
+    const v = store.get("field:" + el.dataset.key);
+    if (v !== null) el.innerText = v;
+    else if (TOWER && TOWER[el.dataset.key]) el.innerText = TOWER[el.dataset.key];   // served by the control tower
+    el.addEventListener("input", () => store.set("field:" + el.dataset.key, el.innerText));
+    el.addEventListener("keydown", e => e.stopPropagation());
+  });
+
+  /* ---------- bar ---------- */
+  const bar = document.getElementById("bar");
+  const track = bar.querySelector(".track");
+  SEGMENTS.forEach(s => { const d = document.createElement("span"); d.className = "seg"; d.style.flex = s.min; track.appendChild(d); });
+  function renderBar() {
+    const seg = +(slides[idx].dataset.seg || 0), S = SEGMENTS[seg];
+    bar.querySelector(".where").textContent = `${S.gate}  ${S.name}  ·  ${S.start}–${S.start + S.min} min`;
+    [...track.children].forEach((d, i) => d.className = "seg" + (i < seg ? " past" : i === seg ? " now" : ""));
+    bar.querySelector(".num").textContent = `${num(idx)}/${TOTAL}`;
+    drawTimer();
+    report();
+  }
+
+  /* ---------- presenter timer: a window this page writes itself (no URL to load, so nothing to block) ---------- */
+  const tmem = {};
+  const tget = k => store.get("timer:" + k) ?? tmem[k] ?? null;
+  const tset = (k, v) => { tmem[k] = String(v); store.set("timer:" + k, v); };
+  let timerWin = null, timerEls = null, timerLoop = null;
+  function timerElapsed() {
+    if (!tget("start")) tset("start", Date.now());
+    const start = +tget("start"), paused = +(tget("paused") || 0);
+    return Math.max(0, ((paused || Date.now()) - start) / 1000);
+  }
+  function timerReset() { tset("start", Date.now()); tset("paused", ""); drawTimer(); }
+  function timerPause() {
+    const paused = +(tget("paused") || 0);
+    if (paused) { tset("start", +tget("start") + (Date.now() - paused)); tset("paused", ""); }
+    else tset("paused", Date.now());
+    drawTimer();
+  }
+  function stopTimerView() { timerEls = null; clearInterval(timerLoop); }
+  function drawTimer() {
+    if (!timerEls) return;
+    if (timerWin && timerWin.closed) { timerWin = null; stopTimerView(); return; }
+    const e = timerElapsed(), m = Math.floor(e / 60), s = Math.floor(e % 60);
+    const seg = +(slides[idx].dataset.seg || 0), S = SEGMENTS[seg];
+    const late = e / 60 > S.start + S.min;
+    timerEls.t.textContent = `${m}:${String(s).padStart(2, "0")}`;
+    timerEls.seg.textContent = `Slide ${num(idx)}/${TOTAL} · ${S.gate} ${S.name} · mål ${S.start}–${S.start + S.min} min`;
+    timerEls.t.classList.toggle("late", late); timerEls.seg.classList.toggle("late", late);
+    timerEls.pause.textContent = tget("paused") ? "Fortsett" : "Pause";
+  }
+  function bindTimer(doc) {
+    timerEls = { t: doc.getElementById("twT"), seg: doc.getElementById("twSeg"), pause: doc.getElementById("twPause") };
+    doc.getElementById("twReset").addEventListener("click", e => { e.stopPropagation(); timerReset(); });
+    timerEls.pause.addEventListener("click", e => { e.stopPropagation(); timerPause(); });
+    clearInterval(timerLoop); timerLoop = setInterval(drawTimer, 250); drawTimer();
+  }
+  const TIMER_BODY = `<div class="t" id="twT">0:00</div><div class="seg" id="twSeg"></div><div class="btns"><button class="primary" id="twReset">Tilbakestill</button><button id="twPause">Pause</button></div>`;
+  function openTimer() {
+    if (timerWin && !timerWin.closed) { timerWin.focus(); return; }
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+    let w = null;
+    try { w = window.open("", "asyncair-timer", "popup,width=560,height=380"); } catch (e) {}
+    if (w) {
+      try {
+        const d = w.document;
+        d.open();
+        d.write(`<!doctype html><html lang="no"><head><meta charset="utf-8"><title>Timer · AsyncAir</title><style>
+          html,body{margin:0;height:100%;background:${v("--bg")};color:${v("--ink")};font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+          #tw{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;box-sizing:border-box;text-align:center}
+          .t{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:600;font-size:min(26vw,30vh);line-height:1;font-variant-numeric:tabular-nums}
+          .seg{font-size:min(5vw,22px);color:${v("--muted")}}
+          .late{color:${v("--red")} !important}
+          .btns{display:flex;gap:12px}
+          button{font:600 18px system-ui,sans-serif;padding:12px 22px;border-radius:10px;border:2px solid ${v("--line")};background:${v("--surface")};color:${v("--ink")};cursor:pointer}
+          button.primary{background:#FFB23F;border-color:#FFB23F;color:#0E1A2B}
+        </style></head><body><main id="tw">${TIMER_BODY}</main></body></html>`);
+        d.close();
+        timerWin = w; bindTimer(d); w.focus();
+        return;
+      } catch (e) { try { w.close(); } catch (_) {} }
+    }
+    // Fallback: the browser refused a separate window, so show a small panel inside the deck instead.
+    let f = document.getElementById("twFloat");
+    if (f) { f.remove(); stopTimerView(); return; }
+    f = document.createElement("div");
+    f.id = "twFloat";
+    f.innerHTML = TIMER_BODY + `<button id="twClose" aria-label="Lukk timer">×</button>`;
+    document.body.appendChild(f);
+    f.addEventListener("click", e => e.stopPropagation());
+    f.querySelector("#twClose").addEventListener("click", () => { f.remove(); stopTimerView(); });
+    bindTimer(document);
+  }
+  bar.querySelector(".timer-link").addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); openTimer(); });
+
+  /* ---------- served by the control tower: report slide + timer to the dashboard ---------- */
+  var chan = null;
+  if (TOWER) { try { chan = new BroadcastChannel("asyncair-deck"); } catch (e) {} }
+  function report() {
+    if (!chan) return;
+    const seg = +(slides[idx].dataset.seg || 0), S = SEGMENTS[seg];
+    chan.postMessage({ type: "deck", elapsed: timerElapsed(), paused: !!tget("paused"),
+      slide: num(idx), total: TOTAL, gate: S.gate, name: S.name, start: S.start, min: S.min });
+  }
+  if (chan) {
+    chan.onmessage = e => {
+      const m = e.data || {};
+      if (m.cmd === "reset") timerReset();
+      else if (m.cmd === "pause") timerPause();
+      report();
+    };
+    setInterval(report, 500);
+    window.addEventListener("pagehide", () => { try { chan.postMessage({ type: "closed" }); } catch (e) {} });
+  }
+
+  /* ---------- navigation ---------- */
+  function show(n, s = 0) {
+    n = Math.max(0, Math.min(slides.length - 1, n));
+    const prev = slides[idx];
+    if (n !== idx || !prev.classList.contains("active")) {
+      prev.classList.remove("active"); prev.setAttribute("aria-hidden", "true");
+      idx = n;
+      const cur = slides[idx];
+      cur.classList.add("active"); cur.removeAttribute("aria-hidden");
+      cur.querySelectorAll(".board").forEach(flap);
+      cur.dataset.clock ? startClock(cur) : stopClock();
+      if (cur.querySelector("#vote-qr")) renderVoteQR();
+    }
+    const steps = [...slides[idx].querySelectorAll(".step")];
+    step = Math.max(0, Math.min(steps.length, s));
+    steps.forEach((el, i) => el.classList.toggle("shown", i < step));
+    history.replaceState(null, "", "#" + num(idx));
+    store.set("slide", idx);
+    renderBar();
+  }
+  const stepsOf = i => slides[i].querySelectorAll(".step").length;
+  function next() { step < stepsOf(idx) ? show(idx, step + 1) : idx < slides.length - 1 && show(idx + 1, 0); }
+  function prev() { step > 0 ? show(idx, step - 1) : idx > 0 && show(idx - 1, stepsOf(idx - 1)); }
+
+  /* QR code to the voting page, built from the tower URL typed on slide 30 */
+  function renderVoteQR() {
+    const box = document.getElementById("vote-qr");
+    if (!box) return;
+    const raw = (document.querySelector('[data-key="tower"]')?.innerText || "").trim().replace(/\/+$/, "");
+    const ok = /^https?:\/\/\S+$/.test(raw) && !raw.includes("din-codespace");
+    const url = ok ? raw + "/vote" : "";
+    document.querySelectorAll(".vote-url").forEach(e => e.textContent = url || "(lim inn tårn-URL-en på slide 30 først)");
+    if (box.dataset.url === url) return;
+    box.dataset.url = url;
+    box.innerHTML = url ? "" : "QR-koden vises når tårn-URL-en står på slide 30";
+    if (url && window.QRCode) new QRCode(box, { text: url, width: 340, height: 340, colorDark: "#0E1A2B", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  /* type a slide number, then Enter */
+  let gotoBuf = "", gotoTimer = null;
+  const gotoEl = document.getElementById("goto");
+  function setGoto(v) {
+    gotoBuf = v;
+    gotoEl.textContent = v ? `Gå til slide ${v} ↵` : "";
+    gotoEl.style.display = v ? "block" : "none";
+    clearTimeout(gotoTimer);
+    if (v) gotoTimer = setTimeout(() => setGoto(""), 4000);
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.target.isContentEditable) return;
+    const k = e.key;
+    if (/^[0-9]$/.test(k)) { setGoto((gotoBuf + k).slice(0, 3)); return; }
+    if (gotoBuf && k === "Enter") {
+      e.preventDefault();
+      const n = parseInt(gotoBuf, 10);
+      setGoto("");
+      if (n >= 1 - OFF && n <= TOTAL) show(at(n));
+      return;
+    }
+    if (gotoBuf && (k === "Escape" || k === "Backspace")) { e.preventDefault(); setGoto(k === "Escape" ? "" : gotoBuf.slice(0, -1)); return; }
+    if (["ArrowRight", "PageDown", " ", "Enter", "ArrowDown"].includes(k)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "PageUp", "ArrowUp", "Backspace"].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === "Home") show(0);
+    else if (k === "End") show(slides.length - 1);
+    else if (k === "f" || k === "F") { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {}); }
+    else if (k === "l" || k === "L") toggleTheme();
+    else if (k === "b" || k === "B" || k === ".") { const b = document.getElementById("blackout"); b.style.display = b.style.display === "block" ? "none" : "block"; }
+    else if (k === "?") { const h = document.getElementById("help"); h.style.display = h.style.display === "block" ? "none" : "block"; }
+  });
+  document.getElementById("viewport").addEventListener("click", e => {
+    if (e.target.closest("[contenteditable], a, button, .countdown")) return;
+    if (window.getSelection && String(window.getSelection())) return;
+    next();
+  });
+
+  window.addEventListener("hashchange", () => {
+    const n = parseInt(location.hash.slice(1), 10);
+    if (Number.isFinite(n) && at(n) !== idx) show(at(n));
+  });
+
+  slides.forEach(s => s.setAttribute("aria-hidden", "true"));
+  const fromHash = parseInt(location.hash.slice(1), 10);
+  slides[0].classList.remove("active");
+  idx = 0;
+  show(Number.isFinite(fromHash) ? at(fromHash) : 0);
+})();
+</script>
+</body>
+</html>

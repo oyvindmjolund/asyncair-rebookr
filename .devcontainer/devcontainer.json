@@ -6,9 +6,10 @@
   },
   "postCreateCommand": "pip install -r requirements.txt && cd ts && npm ci",
   "postStartCommand": "nohup bash -c 'python -m mock.server > /tmp/control-tower.log 2>&1 &'",
-  "forwardPorts": [8787],
+  "forwardPorts": [8787, 8788],
   "portsAttributes": {
-    "8787": { "label": "AsyncAir control tower", "onAutoForward": "silent" }
+    "8787": { "label": "AsyncAir control tower (public)", "onAutoForward": "silent" },
+    "8788": { "label": "AsyncAir control tower (admin, keep Private)", "onAutoForward": "silent" }
   },
   "customizations": {
     "vscode": {

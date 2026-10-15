@@ -43,6 +43,7 @@ and Azure, so the **real vendor SDKs** talk to it, but nothing leaves the room a
 | `evals/` | Golden dataset + eval harness + blind taste test |
 | `ts/` | The same abstraction in TypeScript, sharing the same `config.toml` |
 | `mock/` | The control tower (mock server + red-button dashboard) |
+| `deck/` | The slides from the masterclass (open the HTML file in a browser) |
 
 ## 3. Exercises
 
@@ -83,7 +84,7 @@ python -m evals.run --judge openai       # does the judge change the winner?
 
 ## 4. Red-button controls
 
-Open the **Ports** tab, then port **8787** to see the control tower dashboard. Or from a terminal:
+Open the **Ports** tab, then port **8788** to see the control tower dashboard (port 8787 serves the APIs only). Or from a terminal:
 ```bash
 python -m mock.chaos anthropic down     # down | slow | ratelimit | ok
 python -m mock.chaos all ok
