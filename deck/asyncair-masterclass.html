@@ -1178,13 +1178,15 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     if (!chan) return;
     const seg = +(slides[idx].dataset.seg || 0), S = SEGMENTS[seg];
     chan.postMessage({ type: "deck", elapsed: timerElapsed(), paused: !!tget("paused"),
-      slide: num(idx), total: TOTAL, gate: S.gate, name: S.name, start: S.start, min: S.min });
+      slide: num(idx), total: TOTAL, step, steps: stepsOf(idx), gate: S.gate, name: S.name, start: S.start, min: S.min });
   }
   if (chan) {
     chan.onmessage = e => {
       const m = e.data || {};
       if (m.cmd === "reset") timerReset();
       else if (m.cmd === "pause") timerPause();
+      else if (m.cmd === "next") next();       // from the script window (clicker on that screen)
+      else if (m.cmd === "prev") prev();
       report();
     };
     setInterval(report, 500);

@@ -115,6 +115,14 @@ every request, so an updated deck needs no restart. Allow pop-ups for the 8788 a
 keeps running if the Codespace stops, but the voting and the red button don't. Backup: the same
 file on claude.ai, with the clock icon's timer window as before.
 
+**Speaker script on a second screen.** *Åpne manus* on the dashboard opens `/manus`: the script
+split per slide, with the current slide highlighted and scrolled to the top, the next slide, the
+timer, and how many clicks the slide has left. It follows the deck, and arrow keys, Page Up/Down or a
+clicker in that window move the deck. The script is read from `private/manus.md`, which is
+git-ignored so graduates never see it: drag the file into `private/` in the Codespace (VS Code
+Explorer), or pick it in the script window, which then remembers it in that browser.
+Suggested screens: laptop = dashboard + terminal, extra screen = script, projector = deck.
+
 **Blind test voting (slides 35-39)** runs in the same tower, no Mentimeter needed:
 - Phones: `<tower-URL>/vote` (slide 35 shows a QR code once the URL is on slide 30).
 - You: the *Blindtest · avstemning* panel on the dashboard - open round 1, 2, 3, then *Steng*.

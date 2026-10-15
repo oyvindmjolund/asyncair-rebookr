@@ -6,3 +6,5 @@ node_modules/
 evals/results/
 evals/deck/
 evals/tastetest/
+# instructor-only files (speaker script). Never pushed: the repo is public.
+private/

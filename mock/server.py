@@ -21,6 +21,8 @@ Presentation (admin):
   GET  /deck                  the slide deck (deck/asyncair-masterclass.html, override MOCK_DECK),
                               with the tower URL and repo link filled in for slides 30 and 50.
                               The dashboard opens it in its own window and shows its timer.
+  GET  /manus                 the speaker script, one block per slide, following the deck
+  GET  /_manus                the script as markdown (private/manus.md, git-ignored; override MOCK_MANUS)
 
 Chaos control (the red button):
   GET  /                      dashboard with buttons + team scoreboard      (admin)
@@ -51,7 +53,8 @@ MODES = ("ok", "down", "slow", "ratelimit", "flaky")   # flaky = dies halfway th
 PUBLIC_PORT = int(os.environ.get("MOCK_PORT", "8787"))
 ADMIN_PORT = int(os.environ.get("MOCK_ADMIN_PORT", "8788"))
 # Instructor-only routes: refused on the public port, served on the admin port.
-ADMIN_GET = {"/", "/dashboard", "/deck"}
+ADMIN_GET = {"/", "/dashboard", "/deck", "/manus", "/_manus"}
+MANUS_PATH = Path(os.environ.get("MOCK_MANUS") or Path(__file__).resolve().parent.parent / "private" / "manus.md")
 DECK_PATH = Path(os.environ.get("MOCK_DECK") or Path(__file__).resolve().parent.parent / "deck" / "asyncair-masterclass.html")
 ADMIN_POST = {"/_chaos", "/_vote/control", "/_reset_scores"}
 SLOW_SECONDS = float(os.environ.get("MOCK_SLOW_SECONDS", "8"))
@@ -64,6 +67,7 @@ TEAMS: dict[str, dict] = {}
 DASHBOARD = (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
 VOTE_PAGE = (Path(__file__).parent / "vote.html").read_text(encoding="utf-8")
 RESULTS_PAGE = (Path(__file__).parent / "results.html").read_text(encoding="utf-8")
+MANUS_PAGE = (Path(__file__).parent / "manus.html").read_text(encoding="utf-8")
 def _public_url() -> str:
     """The tower URL graduates use (slide 30)."""
     name, domain = os.environ.get("CODESPACE_NAME"), os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
@@ -238,10 +242,10 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", "0") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
-    def _html(self, page: str, status: int = 200):
+    def _html(self, page: str, status: int = 200, ctype: str = "text/html"):
         data = page.encode()
         self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", f"{ctype}; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -289,6 +293,13 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/dashboard"):
             self._html(DASHBOARD.replace("__PUBLIC_PORT__", str(PUBLIC_PORT)).replace("__ADMIN_PORT__", str(ADMIN_PORT))
                        .replace("__HAS_DECK__", "1" if DECK_PATH.is_file() else "0"))
+        elif path == "/manus":
+            self._html(MANUS_PAGE)
+        elif path == "/_manus":
+            try:
+                self._html(MANUS_PATH.read_text(encoding="utf-8"), ctype="text/markdown")
+            except OSError:
+                self._json(404, {"error": f"script not found at {MANUS_PATH}"})
         elif path == "/deck":
             page = _deck_page()
             if page is None:

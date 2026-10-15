@@ -48,6 +48,7 @@
   .vote-info b { color:var(--ink); }
   .deck-row { display:flex; flex-wrap:wrap; align-items:center; gap:28px; }
   #deckOpen { font-size:17px; font-weight:700; padding:16px 24px; border-radius:12px; background:#FFB23F; color:#0E1A2B; }
+  #manusOpen { font-size:17px; font-weight:700; padding:16px 24px; border-radius:12px; }
   #deckOpen:disabled { opacity:.4; cursor:not-allowed; }
   .deck-timer { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
   .deck-timer .t { font-family: ui-monospace, Menlo, monospace; font-weight:700; font-size:56px; line-height:1; font-variant-numeric:tabular-nums; }
@@ -70,13 +71,15 @@
     <h2>Presentasjon</h2>
     <div class="deck-row">
       <button id="deckOpen">Åpne presentasjonen</button>
+      <button id="manusOpen">Åpne manus</button>
       <div class="deck-timer off" id="deckTimer">
         <div class="t" id="dtT">0:00</div>
         <div class="meta" id="dtMeta">Presentasjonen er ikke åpen.</div>
         <div class="btns"><button id="dtReset">Tilbakestill</button><button id="dtPause">Pause</button></div>
       </div>
     </div>
-    <p class="hint">Åpnes i eget vindu: dra det til projektoren og trykk <kbd>F</kbd> der. Timeren her følger presentasjonen og vises ikke på projektoren.</p>
+    <p class="hint">Begge åpnes i eget vindu. Presentasjonen: dra til projektoren og trykk <kbd>F</kbd> der. Manus: dra til ekstraskjermen. Det følger presentasjonen,
+      og piltaster eller klikker i manusvinduet blar i presentasjonen. Timeren her og i manus vises ikke på projektoren.</p>
   </section>
   <section class="panel">
     <h2>The red button</h2>
@@ -196,6 +199,12 @@ function renderDeck() {
   dt.classList.toggle("late", late);
   document.getElementById("dtPause").textContent = m.paused ? "Fortsett" : "Pause";
 }
+let manusWin = null;
+document.getElementById("manusOpen").onclick = () => {
+  if (manusWin && !manusWin.closed) { manusWin.focus(); return; }
+  manusWin = window.open("/manus", "asyncair-manus", "popup,width=1200,height=1000");
+  if (!manusWin) alert("Nettleseren blokkerte vinduet. Tillat popup-vinduer for denne siden og prøv igjen.");
+};
 document.getElementById("dtReset").onclick = () => {
   if (deckMsg && deckMsg.elapsed > 60 && !confirm("Nullstille timeren?")) return;
   chan && chan.postMessage({ cmd: "reset" });

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manus · AsyncAir</title>
+<style>
+  :root { --bg:#0E1A2B; --panel:#15243a; --line:#24364f; --ink:#E9EEF5; --muted:#8A97AB; --amber:#FFB23F; --red:#ff5a66; --fs:22px; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; font-size:var(--fs); line-height:1.55; }
+  header { position:sticky; top:0; z-index:5; background:#0a1422; border-bottom:2px solid var(--line); padding:14px 28px; display:grid; grid-template-columns:1fr auto; gap:6px 24px; align-items:center; }
+  .now { font-size:30px; font-weight:700; line-height:1.2; }
+  .now .n { color:var(--amber); font-family:ui-monospace,Menlo,Consolas,monospace; margin-right:12px; }
+  .sub { color:var(--muted); font-size:17px; }
+  .sub b { color:var(--ink); font-weight:600; }
+  .right { display:flex; align-items:center; gap:16px; justify-self:end; grid-row:span 2; }
+  .t { font-family:ui-monospace,Menlo,Consolas,monospace; font-weight:700; font-size:54px; line-height:1; font-variant-numeric:tabular-nums; }
+  .t.late { color:var(--red); }
+  .t .p { font-size:16px; color:var(--amber); margin-left:8px; vertical-align:middle; }
+  .ctl { display:flex; flex-direction:column; gap:6px; }
+  .ctl div { display:flex; gap:6px; }
+  button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font:600 15px system-ui,sans-serif; cursor:pointer; }
+  button:hover { border-color:var(--amber); }
+  .status { font-size:14px; color:var(--muted); }
+  .status.off { color:var(--red); }
+  .dots { display:inline-flex; gap:5px; margin-left:10px; vertical-align:middle; }
+  .dots i { width:10px; height:10px; border-radius:50%; background:var(--line); display:inline-block; }
+  .dots i.on { background:var(--amber); }
+  main { max-width:1100px; margin:0 auto; padding:24px 28px 60vh; }
+  h1 { font-size:1.4em; margin:.4em 0; }
+  h2 { font-size:1.15em; color:var(--amber); margin:1.6em 0 .4em; padding-top:.6em; border-top:1px solid var(--line); }
+  h3 { font-size:1em; color:var(--muted); margin:1.2em 0 .3em; text-transform:uppercase; letter-spacing:.06em; font-size:.8em; }
+  p { margin:.5em 0; }
+  ul, ol { margin:.4em 0; padding-left:1.4em; }
+  li { margin:.2em 0; }
+  i, em { color:#ffe2a8; }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.85em; background:#0a1422; border:1px solid var(--line); border-radius:5px; padding:1px 6px; }
+  table { border-collapse:collapse; margin:.6em 0; font-size:.8em; width:100%; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .unit { border-left:5px solid transparent; padding:2px 0 8px 18px; margin:10px 0 10px -23px; opacity:.38; transition:opacity .25s, border-color .25s, background .25s; border-radius:0 10px 10px 0; }
+  .unit.cur { opacity:1; border-left-color:var(--amber); background:var(--panel); }
+  .unit.next { opacity:.7; }
+  .unit > h2:first-child { border-top:0; margin-top:.2em; padding-top:0; }
+  .unit > .head { font-weight:700; color:var(--amber); }
+  .unit > .head .time { color:var(--muted); font-weight:400; margin-left:8px; }
+  #empty { max-width:760px; margin:12vh auto; text-align:center; color:var(--muted); }
+  #empty h1 { color:var(--ink); }
+  #empty label { display:inline-block; margin-top:18px; background:var(--amber); color:#0E1A2B; font-weight:700; padding:12px 20px; border-radius:10px; cursor:pointer; }
+  #empty input { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="now" id="now"><span class="n">–</span>Venter på presentasjonen</div>
+  <div class="right">
+    <div class="t" id="t">0:00</div>
+    <div class="ctl">
+      <div><button id="prev" title="Forrige (←)">◀</button><button id="next" title="Neste (→)">▶</button></div>
+      <div><button id="smaller" title="Mindre tekst">A−</button><button id="bigger" title="Større tekst">A+</button></div>
+    </div>
+  </div>
+  <div class="sub" id="sub"><span class="status off" id="status">Decket er ikke åpent. Åpne det fra dashbordet.</span></div>
+</header>
+<main id="doc"></main>
+<div id="empty" hidden>
+  <h1>Fant ikke manuset</h1>
+  <p>Tårnet leser manuset fra <code>private/manus.md</code> i repoet (utenfor git). Dra filen inn der i VS Code,
+     eller velg den her. Da husker denne nettleseren den.</p>
+  <label>Velg manus.md<input type="file" id="pick" accept=".md,text/markdown,text/plain"></label>
+</div>
+<script>
+(() => {
+  const store = {
+    get(k) { try { return localStorage.getItem("asyncair-manus:" + k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem("asyncair-manus:" + k, v); } catch (e) {} },
+  };
+
+  /* ---------- a small markdown renderer: headings, lists, tables, bold, italics, code ---------- */
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function inline(s) {
+    const codes = [];
+    s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return "\u0000" + (codes.length - 1) + "\u0000"; });
+    s = esc(s).replace(/\\([_*\\`])/g, "$1")
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<i>$2</i>")
+      .replace(/^\[ \] /, "☐ ").replace(/^\[x\] /i, "☑ ");
+    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${esc(codes[+i])}</code>`);
+  }
+  function blocks(md) {
+    const lines = md.replace(/\r\n?/g, "\n").split("\n"), out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (!l.trim()) { i++; continue; }
+      let m;
+      if ((m = l.match(/^(#{1,3})\s+(.*)$/))) { out.push({ type: "h" + m[1].length, text: m[2] }); i++; continue; }
+      if (l.startsWith("|")) {
+        const rows = [];
+        while (i < lines.length && lines[i].startsWith("|")) rows.push(lines[i++]);
+        const cells = r => r.replace(/^\||\|\s*$/g, "").split("|").map(c => c.trim());
+        const body = rows.filter((r, k) => !(k === 1 && /^\|[\s:|-]+\|?\s*$/.test(r)));
+        const [h, ...rest] = body;
+        out.push({ type: "html", html: `<table><thead><tr>${cells(h).map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>` +
+          rest.map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table>" });
+        continue;
+      }
+      if (/^\s*([-*]|\d+\.)\s/.test(l)) {
+        const ordered = /^\s*\d+\.\s/.test(l);
+        let html = ordered ? "<ol>" : "<ul>", nested = false;
+        while (i < lines.length && /^\s*([-*]|\d+\.)\s/.test(lines[i])) {
+          const li = lines[i++], deep = /^\s{2,}/.test(li), text = li.replace(/^\s*([-*]|\d+\.)\s+/, "");
+          if (deep && !nested) { html = html.replace(/<\/li>$/, "") + "<ul>"; nested = true; }
+          if (!deep && nested) { html += "</ul></li>"; nested = false; }
+          html += `<li>${inline(text)}</li>`;
+        }
+        if (nested) html += "</ul></li>";
+        out.push({ type: "html", html: html + (ordered ? "</ol>" : "</ul>") });
+        continue;
+      }
+      const para = [];
+      while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|\||\s*([-*]|\d+\.)\s)/.test(lines[i])) para.push(lines[i++].trim());
+      out.push({ type: "p", text: para.join(" ") });
+    }
+    return out;
+  }
+
+  /* ---------- group into one unit per slide (slide 0 = "Før du starter") ---------- */
+  let units = [];
+  function render(md) {
+    const doc = document.getElementById("doc");
+    doc.innerHTML = ""; units = [];
+    let cur = null, curLevel = 0;
+    const close = () => { cur = null; curLevel = 0; };
+    for (const b of blocks(md)) {
+      if (b.type === "h1" || b.type === "h2" || b.type === "h3") {
+        if (cur && (curLevel === 0 || b.type === "h1" || b.type === "h2")) close();
+        const h = document.createElement(b.type); h.innerHTML = inline(b.text);
+        if (b.type === "h2" && /^Før du starter/i.test(b.text)) {
+          cur = unit(0, 0, "Før du starter", ""); cur.appendChild(h); curLevel = 2; continue;
+        }
+        (cur || doc).appendChild(h); continue;
+      }
+      const sm = b.type === "p" && b.text.match(/^\*\*Slide (\d+)(?:\s*[–-]\s*(\d+))?\s*·\s*(.+?)\*\*\s*(.*)$/);
+      if (sm) {
+        close();
+        cur = unit(+sm[1], +(sm[2] || sm[1]), sm[3], sm[4]);
+        const head = document.createElement("div"); head.className = "head";
+        head.innerHTML = `Slide ${sm[2] ? sm[1] + "–" + sm[2] : sm[1]} · ${inline(sm[3])}<span class="time">${inline(sm[4])}</span>`;
+        cur.appendChild(head); continue;
+      }
+      const el = document.createElement(b.type === "p" ? "p" : "div");
+      el.innerHTML = b.type === "p" ? inline(b.text) : b.html;
+      (cur || doc).appendChild(b.type === "p" ? el : (el.firstChild || el));
+    }
+    function unit(from, to, title, time) {
+      const d = document.createElement("section"); d.className = "unit";
+      d.dataset.from = from; d.dataset.to = to;
+      units.push({ from, to, title, time, el: d }); doc.appendChild(d); return d;
+    }
+    lastSlide = null; if (deck) highlight(deck.slide);
+  }
+
+  /* ---------- follow the deck ---------- */
+  let deck = null, seen = 0, lastSlide = null, chan = null;
+  try { chan = new BroadcastChannel("asyncair-deck"); } catch (e) {}
+  const unitFor = n => units.find(u => n >= u.from && n <= u.to) || [...units].reverse().find(u => u.from <= n) || null;
+  function highlight(n) {
+    const u = unitFor(n);
+    units.forEach(x => x.el.classList.remove("cur", "next"));
+    if (!u) return;
+    u.el.classList.add("cur");
+    const nx = units[units.indexOf(u) + 1]; if (nx) nx.el.classList.add("next");
+    if (n !== lastSlide) {
+      lastSlide = n;
+      const top = u.el.getBoundingClientRect().top + window.scrollY - document.querySelector("header").offsetHeight - 14;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  }
+  function draw() {
+    const live = deck && Date.now() - seen < 2500;
+    const st = document.getElementById("status");
+    if (!live) {
+      st.className = "status off"; st.textContent = deck ? "Mistet kontakten med decket. Er vinduet lukket?" : "Decket er ikke åpent. Åpne det fra dashbordet.";
+      document.getElementById("sub").replaceChildren(st);
+      return;
+    }
+    const m = deck, u = unitFor(m.slide), nx = u ? units[units.indexOf(u) + 1] : null;
+    document.getElementById("now").innerHTML = `<span class="n">${m.slide}/${m.total}</span>${u ? inline(u.title) : ""}`;
+    const s = Math.floor(m.elapsed), late = m.elapsed / 60 > m.start + m.min;
+    const t = document.getElementById("t");
+    t.innerHTML = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` + (m.paused ? `<span class="p">PAUSE</span>` : "");
+    t.classList.toggle("late", late);
+    const dots = m.steps ? `<span class="dots">${Array.from({ length: m.steps }, (_, k) => `<i class="${k < m.step ? "on" : ""}"></i>`).join("")}</span>` : "";
+    document.getElementById("sub").innerHTML =
+      `<b>${m.gate} ${m.name}</b> · mål ${m.start}–${m.start + m.min} min` + (late ? ` · <b style="color:var(--red)">over tiden</b>` : "") +
+      (m.steps ? ` · klikk ${m.step}/${m.steps}${dots}` : "") +
+      (nx ? `<br>Neste: <b>Slide ${nx.from === nx.to ? nx.from : nx.from + "–" + nx.to} · ${inline(nx.title)}</b>` : "");
+    highlight(m.slide);
+  }
+  if (chan) chan.onmessage = e => {
+    const m = e.data || {};
+    if (m.type === "deck") { deck = m; seen = Date.now(); draw(); }
+    if (m.type === "closed") { seen = 0; draw(); }
+  };
+  setInterval(draw, 500);
+
+  /* ---------- steer the deck from here (clicker or arrows on this screen) ---------- */
+  const send = cmd => chan && chan.postMessage({ cmd });
+  document.getElementById("next").onclick = () => send("next");
+  document.getElementById("prev").onclick = () => send("prev");
+  document.addEventListener("keydown", e => {
+    if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); send("next"); }
+    else if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); send("prev"); }
+  });
+
+  /* ---------- text size ---------- */
+  let fs = +(store.get("fs") || 22);
+  const setFs = v => { fs = Math.max(14, Math.min(40, v)); document.documentElement.style.setProperty("--fs", fs + "px"); store.set("fs", fs); };
+  setFs(fs);
+  document.getElementById("smaller").onclick = () => setFs(fs - 2);
+  document.getElementById("bigger").onclick = () => setFs(fs + 2);
+
+  /* ---------- load the script: from the tower, else from a file picked in this browser ---------- */
+  function showEmpty() { document.getElementById("empty").hidden = false; }
+  document.getElementById("pick").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const text = await f.text(); store.set("text", text);
+    document.getElementById("empty").hidden = true; render(text);
+  };
+  fetch("/_manus", { cache: "no-store" })
+    .then(r => r.ok ? r.text() : Promise.reject(r.status))
+    .then(render)
+    .catch(() => { const saved = store.get("text"); saved ? render(saved) : showEmpty(); });
+})();
+</script>
+</body>
+</html>
