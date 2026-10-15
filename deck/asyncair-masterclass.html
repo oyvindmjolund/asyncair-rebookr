@@ -165,6 +165,18 @@ table.matrix td:first-child { font-weight:600; width:22%; }
 .ladder b { font-family:var(--cond); font-size:32px; display:block; }
 .dim-red { color:var(--red); }
 .ok { color:var(--green); }
+.tavle { position:absolute; left:110px; right:110px; top:190px; bottom:110px; background:var(--bg); pointer-events:none; }
+.tavle.shown { pointer-events:auto; }
+.slide:has(.tavle.shown) > :not(h2):not(.tavle) { visibility:hidden; }
+.tavle .prov { display:flex; gap:16px; margin-bottom:26px; }
+.tavle .pill { font-family:var(--cond); font-weight:600; font-size:28px; padding:8px 20px; border-radius:999px; border:2px solid var(--green); color:var(--green); }
+.tavle .pill.down { border-color:var(--red); background:var(--red); color:#fff; animation:blink 1s steps(2, jump-none) infinite; }
+.tavle table { width:100%; border-collapse:collapse; font-size:28px; }
+.tavle th { text-align:left; font-family:var(--cond); font-weight:600; font-size:22px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:0 14px 10px; border-bottom:2px solid var(--line); }
+.tavle td { padding:9px 14px; border-bottom:1px solid var(--line); }
+.tavle tbody tr:first-child td { color:var(--amber); font-weight:700; }
+.tavle .num { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+.tavle .live { color:var(--green); font-size:.7em; vertical-align:middle; }
 
 /* phone mock */
 .phone { width:430px; height:720px; border-radius:46px; background:var(--surface); border:10px solid var(--ink); padding:28px 22px; display:flex; flex-direction:column; gap:14px; font-size:20px; line-height:1.4; }
@@ -330,8 +342,10 @@ def answer_faq(question: str) -> str:
       <li class="step"><strong>4 steder</strong> med hardkodet modellnavn</li>
       <li class="step"><strong>4 steder</strong> som antar Anthropics svarformat</li>
       <li class="step"><strong>0</strong> timeouts, fallbacks eller <code class="inl">try</code></li>
+      <li class="step"><strong>1</strong> leverandør. Ingen plan B.</li>
     </ul>
   </div>
+  <p class="step" style="font-size:30px;margin-top:26px">Krasjet skyldes manglende <strong>redundans</strong>. At plan B er dyr, skyldes manglende <strong>abstraksjon</strong>.</p>
 </section>
 
 <!-- ============ A2 · HVORFOR LOCK-IN (8–18) ============ -->
@@ -618,6 +632,7 @@ class ChatResponse:
 <section class="slide" data-seg="3">
   <h2>Model-ruteren</h2>
   <div class="cols two">
+<div>
 <pre class="sm">[routes.faq]
 chain = ["anthropic:fast", "openai:fast",
          "azure:fast"]
@@ -631,6 +646,8 @@ chain = ["openai:smart", "anthropic:smart"]
 
 [routes.eu_only]
 chain = ["azure:smart"]</pre>
+      <p style="margin-top:30px;font-size:30px">Kjeden <em>er</em> redundansen. Abstraksjonen gjør den til én linje config.</p>
+    </div>
     <div>
       <p>Koden ber om <code class="inl">fast</code> eller <code class="inl">smart</code>. Aldri om et modellnavn.</p>
       <ul class="plain small">
@@ -699,10 +716,16 @@ export interface LLMProvider {
     <p>Når den røde knappen trykkes: holder Rebookr seg oppe? Følg med på resultattavla.</p>
     <p class="muted small">Prøv i <code class="inl">config.toml</code>: endre rekkefølgen i kjeden, senk <code class="inl">breaker_failures</code>, sett <code class="inl">retries_per_provider = 1</code>.</p>
   </div>
+  <div class="step tavle" id="tavle">
+    <div class="prov"></div>
+    <table><thead><tr><th>#</th><th>Lag</th><th class="num">Besvart</th><th class="num">Feilede kall</th><th>Sist besvart av</th></tr></thead>
+    <tbody class="rows"></tbody></table>
+  </div>
 </section>
 
 <section class="slide" data-seg="4">
   <h2>Fallback, lag for lag</h2>
+  <p class="small" style="margin:-14px 0 26px">Redundans er mer enn en reserveleverandør. Det er fem lag.</p>
   <ol class="ladder" style="padding-left:40px;margin:0">
     <li><b>Timeout</b>En treg leverandør er en nede leverandør. Sett grensen bevisst.</li>
     <li><b>Retry med backoff</b>Én gang til på samme leverandør, med økende venting. Bare for feil som kan gå over.</li>
@@ -924,6 +947,7 @@ Calm, warm and concrete.</pre>
     <li><span class="ok">✓</span> Hvordan man flytter et prompt-sett uten å miste kvalitet</li>
     <li><span class="ok">✓</span> Hvordan man måler kvalitetsforskjeller objektivt</li>
   </ul>
+  <p class="lede" style="margin-top:44px;color:var(--amber)">Abstraksjon gjør byttet mulig. Redundans gjør at du slipper å bytte i panikk.</p>
 </section>
 
 <section class="slide center" data-seg="6" style="align-items:center">
@@ -1193,6 +1217,27 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     window.addEventListener("pagehide", () => { try { chan.postMessage({ type: "closed" }); } catch (e) {} });
   }
 
+  /* ---------- live scoreboard on slide 30 (only when the deck is served by the tower) ---------- */
+  let tavleLoop = null;
+  const PNAME = { anthropic: "Anthropic", openai: "OpenAI", azure: "Azure" };
+  const escH = v => String(v).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  async function drawTavle() {
+    const box = document.getElementById("tavle"); if (!box) return;
+    const rows = box.querySelector(".rows"), prov = box.querySelector(".prov");
+    const msg = t => `<tr><td colspan="5" class="muted">${t}</td></tr>`;
+    if (!TOWER) { rows.innerHTML = msg("Resultattavla vises når decket åpnes fra kontrolltårnet."); return; }
+    try {
+      const j = await (await fetch("/_chaos", { cache: "no-store" })).json();
+      prov.innerHTML = Object.keys(PNAME).map(p => `<span class="pill ${j.state[p] === "ok" ? "" : "down"}">${PNAME[p]} · ${j.state[p].toUpperCase()}</span>`).join("");
+      const now = Date.now() / 1000;
+      const list = Object.entries(j.teams).sort((a, b) => b[1].ok - a[1].ok || a[1].failed - b[1].failed).slice(0, 9);
+      rows.innerHTML = list.length ? list.map(([n, t], i) => `<tr><td>${i + 1}</td><td>${escH(n)}${now - t.last_seen < 10 ? ' <span class="live">●</span>' : ""}</td>` +
+        `<td class="num">${t.ok}</td><td class="num">${t.failed}</td><td>${PNAME[t.last_provider] || "–"}</td></tr>`).join("") : msg("Venter på første lag …");
+    } catch (e) { rows.innerHTML = msg("Mister kontakten med kontrolltårnet …"); }
+  }
+  function startTavle() { if (tavleLoop) return; drawTavle(); if (TOWER) tavleLoop = setInterval(drawTavle, 1000); }
+  function stopTavle() { clearInterval(tavleLoop); tavleLoop = null; }
+
   /* ---------- navigation ---------- */
   function show(n, s = 0) {
     n = Math.max(0, Math.min(slides.length - 1, n));
@@ -1204,6 +1249,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       cur.classList.add("active"); cur.removeAttribute("aria-hidden");
       cur.querySelectorAll(".board").forEach(flap);
       cur.dataset.clock ? startClock(cur) : stopClock();
+      cur.querySelector("#tavle") ? startTavle() : stopTavle();
       if (cur.querySelector("#vote-qr")) renderVoteQR();
     }
     const steps = [...slides[idx].querySelectorAll(".step")];
