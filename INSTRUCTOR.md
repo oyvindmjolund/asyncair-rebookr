@@ -90,13 +90,24 @@ ASYNCAIR_MODE=live python -m evals.deck_data --judge-check   # + slide 42, takes
 Full reports stay in `evals/results/` as backup.
 
 Then rehearse the whole thing once, including pressing the red button for real.
+Rehearse from the dashboard with all three windows (dashboard, deck, script), so do the
+script step under Sunday already now.
 
 **Before you ever push again:** `git checkout rebookr/llm/openai_provider.py` (removes the solution).
 
 ## 4 · Sunday
 
-**Shared control tower.** Codespace → Ports tab → right-click 8787 → *Port Visibility → Public* →
-*Copy Local Address* → paste on slide 30. Test `https://<address>/health` in an incognito window.
+**Before you start (each Codespace, once):**
+- [ ] **Put the speaker script in place:** drag your `manus.md` into `private/` in the VS Code
+      Explorer, so it ends up as `private/manus.md`. It is git-ignored and never pushed, so a new
+      Codespace does **not** have it. Check: `ls private/manus.md`, then *Åpne manus* on the
+      dashboard shows the script, not «Fant ikke manuset». (Fallback: pick the file in the script window.)
+- [ ] Port 8787 **Public**, port 8788 **Private** (add 8788 in the Ports tab if it's missing).
+- [ ] Open the dashboard (8788), allow pop-ups, open the deck and the script.
+
+**Shared control tower.** Codespace → Ports tab → right-click 8787 → *Port Visibility → Public*.
+The deck fills in the tower URL on slide 30 when you open it from the dashboard; check that it ends
+in `-8787.app.github.dev`. Test `https://<address>/health` in an incognito window.
 A Codespace stops after 30 idle minutes: open it early and keep a terminal busy.
 
 **Two ports.** 8787 (Public) serves the APIs, `/vote` and `/results`. The dashboard and every
