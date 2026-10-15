@@ -39,6 +39,13 @@
   th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase; letter-spacing:1px; }
   td.num { font-family: ui-monospace, Menlo, monospace; }
   .up { color:var(--ok); } .dn { color:var(--down); }
+  .vote-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  .vote-row button { font-size:15px; padding:10px 16px; }
+  .vote-row button.on { background:var(--ok); color:#06210f; font-weight:700; }
+  .vote-row button.danger { background:#4a1d26; }
+  .vote-info { color:var(--muted); font-size:14px; margin-top:14px; line-height:1.7; }
+  .vote-info a { color:var(--ink); }
+  .vote-info b { color:var(--ink); }
   #banner { display:none; grid-column: 1 / -1; background:var(--down); color:#fff; padding:14px 20px; border-radius:12px; font-weight:700; font-size:18px; }
 </style>
 </head>
@@ -63,6 +70,17 @@
       <tbody id="teams"><tr><td colspan="4" class="hint">No traffic yet.</td></tr></tbody>
     </table>
     <p class="hint"><button onclick="fetch('/_reset_scores',{method:'POST'})">Reset scores</button></p>
+  </section>
+  <section class="panel" style="grid-column:1 / -1">
+    <h2>Blindtest · avstemning</h2>
+    <div class="vote-row" id="voteRow">
+      <button data-round="1">Åpne runde 1</button>
+      <button data-round="2">Åpne runde 2</button>
+      <button data-round="3">Åpne runde 3</button>
+      <button data-round="0">Steng</button>
+      <button class="danger" id="voteReset">Nullstill alle stemmer</button>
+    </div>
+    <div class="vote-info" id="voteInfo">Laster…</div>
   </section>
 </main>
 <script>
@@ -108,7 +126,26 @@ document.addEventListener("keydown", e => {
   if (e.key === "f" || e.key === "F") setMode("anthropic", "flaky");
   if (e.key === "0") setMode("all", "ok");
 });
+async function vote(body) {
+  await fetch("/_vote/control", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+  refreshVote();
+}
+document.querySelectorAll("#voteRow [data-round]").forEach(b => b.onclick = () => vote({active: +b.dataset.round}));
+document.getElementById("voteReset").onclick = () => { if (confirm("Slette alle stemmer i alle runder?")) vote({reset: true}); };
+async function refreshVote() {
+  try {
+    const j = await (await fetch("/_vote/results")).json();
+    document.querySelectorAll("#voteRow [data-round]").forEach(b => b.classList.toggle("on", b.dataset.round === j.active && j.active !== "0"));
+    const o = location.origin;
+    document.getElementById("voteInfo").innerHTML =
+      `Status: <b>${j.active === "0" ? "stengt" : "runde " + j.active + " er åpen"}</b> · ` +
+      `<b>${j.online}</b> med stemmesiden åpen · stemmer: R1 <b>${j.totals["1"]}</b>, R2 <b>${j.totals["2"]}</b>, R3 <b>${j.totals["3"]}</b><br>` +
+      `Stemmeside: <a href="${o}/vote" target="_blank">${o}/vote</a> · ` +
+      `Resultater (projektor): <a href="${o}/results" target="_blank">${o}/results</a>`;
+  } catch (e) {}
+}
 refresh(); setInterval(refresh, 1000);
+refreshVote(); setInterval(refreshVote, 1500);
 </script>
 </body>
 </html>

@@ -99,6 +99,12 @@ Then rehearse the whole thing once, including pressing the red button for real.
 *Copy Local Address* → paste on slide 30. Test `https://<address>/health` in an incognito window.
 A Codespace stops after 30 idle minutes: open it early and keep a terminal busy.
 
+**Blind test voting (slides 35-39)** runs in the same tower, no Mentimeter needed:
+- Phones: `<tower-URL>/vote` (slide 35 shows a QR code once the URL is on slide 30).
+- You: the *Blindtest · avstemning* panel on the dashboard - open round 1, 2, 3, then *Steng*.
+- Projector after round 3: `<tower-URL>/results`.
+- Rehearse it Saturday from your own phone, then *Nullstill alle stemmer*.
+
 Dashboard keys: `Space` red button · `0` all clear · `1/2/3` toggle a provider · `S` slow ·
 `R` rate limit · `F` dies mid-stream.
 
@@ -117,4 +123,4 @@ Dashboard keys: `Space` red button · `0` all clear · `1/2/3` toggle a provider
 - **Tower URL unreachable:** everyone `unset MOCK_URL` and runs `python -m mock.chaos anthropic down` on your signal.
 - **Azure fails live:** remove the `AZURE_` lines from `.env`, reload. Graduates still see Azure via the tower.
 - **Live APIs fail on slide 46:** do the switch in mock mode. Same point.
-- **Menti down:** fingers - one, two or three for A, B, C.
+- **Voting page doesn't load on phones:** fingers - one, two or three for A, B, C.

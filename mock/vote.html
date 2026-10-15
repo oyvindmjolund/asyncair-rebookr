@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AsyncAir · Blindtest</title>
+<style>
+  :root { --bg:#F3F5F8; --surface:#FFFFFF; --ink:#0E1A2B; --muted:#55657C; --line:#D3DAE4; --signal:#FFB23F; --amber:#A35F00; --ok:#147A4B;
+          color-scheme:light; box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0E1A2B; --surface:#15243A; --ink:#E9EEF5; --muted:#8FA0B8; --line:#263852; --amber:#FFB23F; --ok:#3DD68C; color-scheme:dark; }
+  }
+  *, *::before, *::after { box-sizing:inherit; }
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:520px; margin:0 auto; padding:24px 20px 40px; display:flex; flex-direction:column; min-height:100%; }
+  header { font-weight:700; font-size:18px; display:flex; align-items:center; gap:10px; color:var(--muted); }
+  header b { color:var(--ink); }
+  h1 { font-size:34px; margin:36px 0 8px; line-height:1.1; }
+  #sub { font-size:18px; color:var(--muted); margin:0 0 28px; line-height:1.4; }
+  #btns { display:grid; gap:14px; }
+  #btns[hidden] { display:none; }
+  button { font:inherit; font-size:44px; font-weight:800; padding:22px; border-radius:18px; border:3px solid var(--line);
+           background:var(--surface); color:var(--ink); cursor:pointer; touch-action:manipulation; }
+  button.mine { border-color:var(--signal); background:var(--signal); color:#0E1A2B; }
+  button:disabled { opacity:.5; }
+  #status { margin-top:22px; font-size:17px; color:var(--muted); min-height:1.4em; line-height:1.4; }
+  #status.ok { color:var(--ok); }
+  .wait { margin-top:28px; height:6px; border-radius:3px; background:linear-gradient(90deg, var(--line), var(--signal), var(--line)); background-size:200% 100%; animation:slide 1.6s linear infinite; }
+  @keyframes slide { to { background-position:-200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .wait { animation:none; } }
+</style>
+</head>
+<body>
+<main>
+  <header><span aria-hidden="true">✈</span><b>AsyncAir</b> blindtest</header>
+  <h1 id="title">Venter på neste runde…</h1>
+  <p id="sub">Hold siden åpen. Knappene dukker opp når runden starter.</p>
+  <div class="wait" id="wait"></div>
+  <div id="btns" hidden>
+    <button data-c="A">A</button>
+    <button data-c="B">B</button>
+    <button data-c="C">C</button>
+  </div>
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
+<script>
+(() => {
+  let voter = null;
+  try { voter = localStorage.getItem("asyncair-voter"); } catch (e) {}
+  if (!voter) {
+    voter = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { localStorage.setItem("asyncair-voter", voter); } catch (e) {}
+  }
+  const $ = id => document.getElementById(id);
+  const buttons = [...document.querySelectorAll("#btns button")];
+  let active = "0", mine = {};
+
+  function render() {
+    const open = active !== "0";
+    $("btns").hidden = !open;
+    $("wait").style.display = open ? "none" : "block";
+    $("title").textContent = open ? `Runde ${active}` : "Venter på neste runde…";
+    $("sub").textContent = open ? "Hvilket svar ville du ønsket deg som passasjer?" : "Hold siden åpen. Knappene dukker opp når runden starter.";
+    const my = open ? mine[active] : null;
+    buttons.forEach(b => b.classList.toggle("mine", b.dataset.c === my));
+    const st = $("status");
+    st.classList.toggle("ok", !!my);
+    st.textContent = my ? `Du stemte ${my}. Du kan ombestemme deg til runden stenges.` : (open ? "Trykk på svaret du foretrekker." : "");
+  }
+
+  async function poll() {
+    try {
+      const r = await fetch(`/_vote/state?voter=${encodeURIComponent(voter)}`, { cache: "no-store" });
+      const j = await r.json();
+      active = j.active; mine = j.mine || {};
+      render();
+    } catch (e) {
+      $("status").textContent = "Mister kontakt med kontrolltårnet. Prøver igjen…";
+    }
+  }
+
+  buttons.forEach(b => b.addEventListener("click", async () => {
+    buttons.forEach(x => x.disabled = true);
+    try {
+      const r = await fetch("/_vote", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voter, round: active, choice: b.dataset.c }) });
+      if (r.ok) { mine[active] = b.dataset.c; }
+      else { $("status").textContent = "Runden er stengt."; }
+    } catch (e) {
+      $("status").textContent = "Stemmen kom ikke fram. Prøv igjen.";
+    }
+    buttons.forEach(x => x.disabled = false);
+    render(); poll();
+  }));
+
+  poll(); setInterval(poll, 1500);
+})();
+</script>
+</body>
+</html>

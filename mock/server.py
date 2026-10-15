@@ -5,6 +5,11 @@ Speaks three wire formats so the *real* vendor SDKs can talk to it:
   OpenAI     POST /openai/v1/chat/completions
   Azure      POST /azure/openai/deployments/<deployment>/chat/completions?api-version=...
 
+Blind test voting (slides 35-39):
+  GET  /vote                  phone page with A/B/C buttons
+  GET  /results               projector page with live results
+  POST /_vote/control         {"active": 1|2|3|0}  or  {"reset": true}
+
 Chaos control (the red button):
   GET  /                      dashboard with buttons + team scoreboard
   GET  /_chaos                current state as JSON
@@ -24,7 +29,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from mock.brain import Decision, Turn, decide, estimate_tokens
 
@@ -38,6 +43,23 @@ STATE = {p: "ok" for p in PROVIDERS}
 COUNTS = {p: {"ok": 0, "failed": 0} for p in PROVIDERS}
 TEAMS: dict[str, dict] = {}
 DASHBOARD = (Path(__file__).parent / "dashboard.html").read_text(encoding="utf-8")
+VOTE_PAGE = (Path(__file__).parent / "vote.html").read_text(encoding="utf-8")
+RESULTS_PAGE = (Path(__file__).parent / "results.html").read_text(encoding="utf-8")
+
+# Blind test voting. One ballot per voter per round; voters may change their mind until the round closes.
+ROUNDS = ("1", "2", "3")
+VOTE = {"active": "0", "ballots": {r: {} for r in ROUNDS}, "seen": {}}
+ONLINE_WINDOW = 12  # seconds since a phone last polled
+
+
+def _vote_snapshot(include_counts: bool) -> dict:
+    now = time.time()
+    online = sum(1 for t in VOTE["seen"].values() if now - t < ONLINE_WINDOW)
+    snap = {"active": VOTE["active"], "online": online,
+            "totals": {r: len(VOTE["ballots"][r]) for r in ROUNDS}}
+    if include_counts:
+        snap["counts"] = {r: {c: sum(1 for v in VOTE["ballots"][r].values() if v == c) for c in "ABC"} for r in ROUNDS}
+    return snap
 
 
 def _record(provider: str, team: str, ok: bool) -> None:
@@ -158,6 +180,15 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", "0") or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
+    def _html(self, page: str):
+        data = page.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     def _team(self) -> str:
         return (self.headers.get("x-asyncair-team") or "anonymous")[:40]
 
@@ -189,12 +220,22 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path in ("/", "/dashboard"):
-            data = DASHBOARD.encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+            self._html(DASHBOARD)
+        elif path == "/vote":
+            self._html(VOTE_PAGE)
+        elif path == "/results":
+            self._html(RESULTS_PAGE)
+        elif path == "/_vote/state":
+            voter = (parse_qs(urlparse(self.path).query).get("voter") or [""])[0][:64]
+            with _lock:
+                if voter:
+                    VOTE["seen"][voter] = time.time()
+                snap = _vote_snapshot(include_counts=False)
+                snap["mine"] = {r: VOTE["ballots"][r].get(voter) for r in ROUNDS} if voter else {}
+            self._json(200, snap)
+        elif path == "/_vote/results":
+            with _lock:
+                self._json(200, _vote_snapshot(include_counts=True))
         elif path == "/_chaos":
             with _lock:
                 self._json(200, {"state": STATE, "counts": COUNTS, "teams": TEAMS})
@@ -212,6 +253,19 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/_chaos":
             return self._set_chaos(body)
+        if path == "/_vote":
+            return self._cast_vote(body)
+        if path == "/_vote/control":
+            with _lock:
+                if body.get("reset"):
+                    VOTE["ballots"] = {r: {} for r in ROUNDS}
+                    VOTE["active"] = "0"
+                elif str(body.get("active")) in ("0",) + ROUNDS:
+                    VOTE["active"] = str(body.get("active"))
+                else:
+                    return self._json(400, {"error": "send {'active': 0-3} or {'reset': true}"})
+                print(f"[control tower] voting -> round {VOTE['active']}", flush=True)
+                return self._json(200, _vote_snapshot(include_counts=False))
         if path == "/_reset_scores":
             with _lock:
                 TEAMS.clear()
@@ -228,6 +282,18 @@ class Handler(BaseHTTPRequestHandler):
                 body.setdefault("model", m.group(1))
             return self._openai(body, "azure")
         self._json(404, {"error": f"unknown route {path}"})
+
+    def _cast_vote(self, body: dict):
+        voter = str(body.get("voter", ""))[:64]
+        rnd, choice = str(body.get("round", "")), str(body.get("choice", ""))
+        if not voter or choice not in ("A", "B", "C"):
+            return self._json(400, {"error": "bad vote"})
+        with _lock:
+            if rnd != VOTE["active"]:
+                return self._json(409, {"error": "closed", "active": VOTE["active"]})
+            VOTE["ballots"][rnd][voter] = choice
+            VOTE["seen"][voter] = time.time()
+        self._json(200, {"ok": True, "round": rnd, "choice": choice})
 
     def _set_chaos(self, body: dict):
         provider, mode = body.get("provider"), body.get("mode", "ok")

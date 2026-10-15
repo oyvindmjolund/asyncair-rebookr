@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AsyncAir · Blindtest – resultater</title>
+<style>
+  :root { --bg:#F3F5F8; --surface:#FFFFFF; --ink:#0E1A2B; --muted:#55657C; --line:#D3DAE4; --signal:#FFB23F; --track:#E3E8EF; color-scheme:light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0E1A2B; --surface:#15243A; --ink:#E9EEF5; --muted:#8FA0B8; --line:#263852; --track:#1C2D46; color-scheme:dark; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:1400px; margin:0 auto; padding:48px 56px; }
+  h1 { font-size:56px; margin:0 0 8px; }
+  #meta { color:var(--muted); font-size:22px; margin-bottom:40px; }
+  .rounds { display:grid; grid-template-columns:repeat(3, 1fr); gap:36px; }
+  @media (max-width: 900px) { .rounds { grid-template-columns:1fr; } }
+  .round { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:28px; }
+  .round h2 { margin:0 0 4px; font-size:32px; }
+  .round .n { color:var(--muted); font-size:18px; margin-bottom:22px; }
+  .bar { display:grid; grid-template-columns:44px 1fr 92px; align-items:center; gap:14px; margin-bottom:16px; }
+  .bar b { font-size:36px; }
+  .track { height:40px; background:var(--track); border-radius:10px; overflow:hidden; }
+  .fill { height:100%; width:0; background:var(--signal); border-radius:10px; transition:width .4s ease; }
+  .bar.top .fill { background:var(--ink); }
+  .pct { font-size:26px; font-variant-numeric:tabular-nums; text-align:right; }
+  .empty { color:var(--muted); font-size:20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Blindtest: hva stemte salen?</h1>
+  <div id="meta">Henter resultater…</div>
+  <div class="rounds" id="rounds"></div>
+</main>
+<script>
+(() => {
+  const el = document.getElementById("rounds");
+  async function tick() {
+    try {
+      const j = await (await fetch("/_vote/results", { cache: "no-store" })).json();
+      document.getElementById("meta").textContent =
+        `${j.online} med stemmesiden åpen` + (j.active !== "0" ? ` · runde ${j.active} er åpen for stemmer` : "");
+      el.innerHTML = ["1", "2", "3"].map(r => {
+        const c = j.counts[r], total = c.A + c.B + c.C;
+        const max = Math.max(c.A, c.B, c.C);
+        const bars = total ? ["A", "B", "C"].map(k => {
+          const pct = Math.round(100 * c[k] / total);
+          return `<div class="bar${c[k] === max && max > 0 ? " top" : ""}"><b>${k}</b><div class="track"><div class="fill" style="width:${pct}%"></div></div><span class="pct">${pct} %</span></div>`;
+        }).join("") : `<p class="empty">Ingen stemmer ennå.</p>`;
+        return `<section class="round"><h2>Runde ${r}</h2><div class="n">${total} stemmer</div>${bars}</section>`;
+      }).join("");
+    } catch (e) {
+      document.getElementById("meta").textContent = "Mister kontakt med kontrolltårnet…";
+    }
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
