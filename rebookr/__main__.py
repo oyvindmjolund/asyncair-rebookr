@@ -5,16 +5,20 @@
   python -m rebookr ask "..." --stream
   python -m rebookr chat [--stream]
   python -m rebookr storm            # endless stream of stranded passengers (red-button demo)
+  python -m rebookr join "team"      # set your team name + point at the instructor's tower
+  python -m rebookr join "team" --local   # same, but use the tower in your own Codespace
 """
 from __future__ import annotations
 
 import argparse
 import itertools
 import sys
+import json
 import time
+import urllib.request
 
 from rebookr.agent import Rebookr
-from rebookr.config import load_config, read_prompt
+from rebookr.config import LOCAL, load_config, read_prompt
 from rebookr.llm import AllProvidersFailed, ModelRouter, StreamInterrupted
 from rebookr.llm.registry import build_providers
 
@@ -65,6 +69,27 @@ def ask_once(bot: Rebookr, text: str, image: str | None, route: str | None, stre
     return False
 
 
+def join(team: str, url: str | None, local: bool) -> int:
+    cfg = load_config()
+    team = team.strip()[:40] or "anonymous"
+    url = (url or ("http://localhost:8787" if local else cfg["mock"].get("shared_url") or cfg["mock"]["url"])).rstrip("/")
+    LOCAL.write_text(f"# written by `python -m rebookr join`\nteam = {json.dumps(team)}\nmock_url = {json.dumps(url)}\n", encoding="utf-8")
+    print(f"{G}✓{X} team {B}{team}{X} · tower {url}")
+    try:
+        with urllib.request.urlopen(f"{url}/health", timeout=6) as r:
+            ok = json.loads(r.read()).get("ok")
+        print(f"{G}✓{X} the control tower answers" if ok else f"{Y}? unexpected answer from the tower{X}")
+    except Exception as e:  # noqa: BLE001 - any failure means "not reachable"
+        print(f"{R}✗ can't reach the tower: {e}{X}")
+        if local:
+            print(f"{DIM}  Start it in its own terminal: python -m mock.server{X}")
+        else:
+            print(f"{DIM}  Instructor's tower down? Use your own: python -m rebookr join {json.dumps(team)} --local{X}")
+        return 1
+    print(f"{DIM}  Saved in .asyncair.toml. Environment variables (MOCK_URL, ASYNCAIR_TEAM) still win if set.{X}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="rebookr")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -76,10 +101,17 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("chat")
     c.add_argument("--stream", action="store_true")
     c.add_argument("--route")
+    j = sub.add_parser("join", help="set team name and control-tower URL (saved in .asyncair.toml)")
+    j.add_argument("team")
+    j.add_argument("--local", action="store_true", help="use the tower in this Codespace (localhost:8787)")
+    j.add_argument("--url", help="use another tower URL")
     s = sub.add_parser("storm")
     s.add_argument("--interval", type=float, default=2.0)
     s.add_argument("--count", type=int, default=0, help="0 = forever")
     args = ap.parse_args(argv)
+
+    if args.cmd == "join":
+        return join(args.team, args.url, args.local)
 
     if args.cmd == "ask":
         return 0 if ask_once(make_bot(), args.text, args.image, args.route, args.stream) else 1

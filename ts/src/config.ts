@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "smol-toml";
@@ -13,9 +13,12 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
 
 export function loadConfig() {
   const cfg = parse(readFileSync(resolve(ROOT, "config.toml"), "utf8")) as any;
+  // Written by `python -m rebookr join`. Precedence: environment > .asyncair.toml > config.toml
+  const localPath = resolve(ROOT, ".asyncair.toml");
+  const local = existsSync(localPath) ? (parse(readFileSync(localPath, "utf8")) as any) : {};
   cfg.mode = process.env.ASYNCAIR_MODE ?? cfg.mode;
-  cfg.team = process.env.ASYNCAIR_TEAM ?? cfg.team;
-  cfg.mock.url = (process.env.MOCK_URL ?? cfg.mock.url).replace(/\/$/, "");
+  cfg.team = process.env.ASYNCAIR_TEAM ?? local.team ?? cfg.team;
+  cfg.mock.url = (process.env.MOCK_URL ?? local.mock_url ?? cfg.mock.url).replace(/\/$/, "");
   return cfg as RouterConfig & { mode: string; team: string; system_prompt: string; mock: { url: string; timeout_seconds: number }; live: { timeout_seconds: number } };
 }
 

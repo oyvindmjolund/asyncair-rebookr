@@ -9,6 +9,8 @@ system_prompt = "prompts/rebookr.claude.md"
 
 [mock]
 url = "http://localhost:8787"   # Env override: MOCK_URL (e.g. the instructor's shared tower)
+# The instructor's shared tower. `python -m rebookr join "team"` points you at it.
+shared_url = "https://improved-space-system-qw749qvr43464p-8787.app.github.dev"
 timeout_seconds = 5             # short on purpose: a "slow" provider becomes a timeout -> fallback
 
 [live]

@@ -106,6 +106,8 @@ script step under Sunday already now.
 - [ ] Open the dashboard (8788), allow pop-ups, open the deck and the script.
 
 **Shared control tower.** Codespace → Ports tab → right-click 8787 → *Port Visibility → Public*.
+`python -m rebookr join` points graduates at `[mock] shared_url` in `config.toml`. If your
+Codespace URL has changed, update `shared_url` and push before the session.
 The deck fills in the tower URL on slide 30 when you open it from the dashboard; check that it ends
 in `-8787.app.github.dev`. Test `https://<address>/health` in an incognito window.
 A Codespace stops after 30 idle minutes: open it early and keep a terminal busy.
@@ -148,14 +150,14 @@ Dashboard keys: `Space` red button · `0` all clear · `1/2/3` toggle a provider
 | 7 | `python -m legacy.storm`, then Space on the dashboard → stack trace. Press `0` afterwards |
 | 10 | open `legacy/` |
 | 17 | (on the slide) |
-| 24 | graduates: `pytest tests/test_openai_provider.py -v`; stragglers: `bash scripts/reveal_solutions.sh` |
+| 24 | graduates: `python -m rebookr join "team"`, `code rebookr/llm/openai_provider.py`, `pytest tests/test_openai_provider.py -v`; stragglers: `bash scripts/reveal_solutions.sh` (keeps their version as `.mine`) |
 | 28 | `cd ts && npm run demo -- --stream "Will I get compensation?"` (optional) |
-| 30 | graduates: `export MOCK_URL=…; export ASYNCAIR_TEAM=…; python -m rebookr storm`; you: Space, `2`, `0` |
+| 30 | *Reset scores*; graduates: `python -m rebookr storm` (join first if they didn't on 24); click the scoreboard onto the slide; you: Space, `2`, `0` |
 | 32 | `F` on the dashboard, then `python -m rebookr ask "Will I get compensation?" --stream`; `0` afterwards |
 | 46 | `ASYNCAIR_MODE=live python -m rebookr ask "My flight KRS to OSL was cancelled"`, swap the first two entries of `routes.rebooking.chain`, run again |
 
 ### If something breaks
-- **Tower URL unreachable:** everyone `unset MOCK_URL` and runs `python -m mock.chaos anthropic down` on your signal.
+- **Tower URL unreachable:** everyone runs `python -m rebookr join "team" --local`, then `python -m mock.chaos anthropic down` on your signal.
 - **Azure fails live:** remove the `AZURE_` lines from `.env`, reload. Graduates still see Azure via the tower.
 - **Live APIs fail on slide 46:** do the switch in mock mode. Same point.
 - **Voting page doesn't load on phones:** fingers - one, two or three for A, B, C.

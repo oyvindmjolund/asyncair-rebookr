@@ -8,3 +8,6 @@ evals/deck/
 evals/tastetest/
 # instructor-only files (speaker script). Never pushed: the repo is public.
 private/
+# written by `python -m rebookr join` and reveal_solutions.sh
+.asyncair.toml
+*.mine

@@ -14,10 +14,12 @@ A storm has grounded every flight, 40,000 passengers need rebooking, and the pho
    curl localhost:8787/health
    ```
    If that fails, start it in its own terminal: `python -m mock.server`
-3. Set your team name (it shows up on the scoreboard):
+3. Join: set your team name (it shows up on the scoreboard) and point Rebookr at the
+   instructor's control tower. Saved in `.asyncair.toml`, so it survives new terminals:
    ```bash
-   export ASYNCAIR_TEAM="your-team-name"
+   python -m rebookr join "your-team-name"
    ```
+   Tower not reachable? `python -m rebookr join "your-team-name" --local` uses the one in your Codespace.
 4. Talk to Rebookr:
    ```bash
    python -m rebookr ask "My flight KRS to OSL tonight was cancelled. Can you rebook me?"
@@ -80,7 +82,8 @@ python -m evals.run --judge openai       # does the judge change the winner?
 - Add a `faq_cheap` route that only uses `fast` models, and use it for baggage questions.
 - Add a test case to `evals/golden.jsonl` that you think one provider will fail.
 
-**Stuck?** `bash scripts/reveal_solutions.sh` drops in the finished adapter.
+**Stuck?** `bash scripts/reveal_solutions.sh` drops in the finished adapter. It overwrites
+`rebookr/llm/openai_provider.py`, but saves your version as `openai_provider.py.mine` first.
 
 ## 4. Red-button controls
 
@@ -89,3 +92,9 @@ Open the **Ports** tab, then port **8788** to see the control tower dashboard (p
 python -m mock.chaos anthropic down     # down | slow | ratelimit | ok
 python -m mock.chaos all ok
 ```
+
+## 5. Licensed to Switch
+
+Green tests? Then you're licensed to switch. Download the badge and share it:
+
+![Licensed to Switch](assets/licensed-to-switch.png)

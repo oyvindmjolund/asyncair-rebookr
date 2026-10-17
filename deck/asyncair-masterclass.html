@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fredag 16:47 · Leverandøruavhengig LLM-arkitektur</title>
+<title>Fredag 16:47 · Provider-uavhengig LLM-arkitektur</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -141,6 +141,28 @@ code.inl { font-size:.86em; background:var(--code-bg); padding:2px 8px; border-r
 .reasons div { border-top:3px solid var(--ink); padding-top:14px; }
 .reasons h3 { margin-bottom:8px; }
 .reasons p { font-size:28px; margin:0; color:var(--muted); }
+.fasit pre.tiny { font-size:15px; line-height:1.38; padding:16px 18px; }
+.fasit .label { font-size:22px; margin-bottom:6px; }
+.fasit-tag { position:absolute; top:12px; right:110px; font-family:var(--cond); font-weight:700; font-size:26px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+.fasit mark { background:transparent; color:inherit; border-radius:4px; padding:0 2px; position:relative; transition:background .2s; }
+.fasit .cap { position:absolute; left:110px; right:110px; bottom:116px; min-height:112px; display:flex; gap:22px; align-items:center; background:var(--surface); border:1px solid var(--line); border-left:6px solid var(--signal); border-radius:10px; padding:14px 26px; font-size:27px; line-height:1.35; }
+.fasit .cap .num { font-family:var(--cond); font-weight:700; font-size:54px; color:var(--amber); min-width:40px; }
+.fasit:has(.cap[data-n="1"].shown) mark[data-n="1"] { background:var(--hl); }
+.fasit:has(.cap[data-n="1"].shown):not(:has(.cap[data-n="2"].shown)) mark[data-n="1"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="2"].shown) mark[data-n="2"] { background:var(--hl); }
+.fasit:has(.cap[data-n="2"].shown):not(:has(.cap[data-n="3"].shown)) mark[data-n="2"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="3"].shown) mark[data-n="3"] { background:var(--hl); }
+.fasit:has(.cap[data-n="3"].shown):not(:has(.cap[data-n="4"].shown)) mark[data-n="3"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="4"].shown) mark[data-n="4"] { background:var(--hl); }
+.fasit:has(.cap[data-n="4"].shown):not(:has(.cap[data-n="5"].shown)) mark[data-n="4"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="5"].shown) mark[data-n="5"] { background:var(--hl); }
+.fasit:has(.cap[data-n="5"].shown):not(:has(.cap[data-n="6"].shown)) mark[data-n="5"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="6"].shown) mark[data-n="6"] { background:var(--hl); }
+.fasit:has(.cap[data-n="6"].shown):not(:has(.cap[data-n="7"].shown)) mark[data-n="6"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="7"].shown) mark[data-n="7"] { background:var(--hl); }
+.fasit:has(.cap[data-n="7"].shown):not(:has(.cap[data-n="8"].shown)) mark[data-n="7"] { background:var(--signal); color:#0E1A2B; }
+.fasit:has(.cap[data-n="8"].shown) mark[data-n="8"] { background:var(--hl); }
+.fasit:has(.cap[data-n="8"].shown) mark[data-n="8"] { background:var(--signal); color:#0E1A2B; }
 .diffs { counter-reset:d; display:grid; grid-template-columns:1fr 1fr; gap:14px 60px; }
 .diffs li { font-size:27px; list-style:none; position:relative; padding-left:56px; }
 .diffs li::before { counter-increment:d; content:counter(d); position:absolute; left:0; top:0; font-family:var(--cond); font-weight:700; font-size:30px; color:var(--amber); }
@@ -153,12 +175,46 @@ table.matrix td:first-child { font-weight:600; width:22%; }
 .countdown-wrap { display:flex; align-items:baseline; gap:20px; }
 [contenteditable] { outline:1px dashed transparent; border-radius:6px; cursor:text; }
 [contenteditable]:hover, [contenteditable]:focus { outline-color:var(--muted); }
-.answer { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:22px 24px; font-size:17px; line-height:1.38; height:515px; overflow:auto; padding:18px 20px; white-space:pre-wrap; }
+.answer { cursor:zoom-in; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:22px 24px; font-size:18.5px; line-height:1.38; height:495px; overflow:auto; padding:18px 20px; white-space:pre-wrap; }
 .answer p { margin:0 0 9px; font-size:inherit; line-height:inherit; max-width:none; }
 .answer p:last-child { margin-bottom:0; }
 .qr-box { background:#FFFFFF; border-radius:18px; padding:22px; width:fit-content; justify-self:center; }
 #vote-qr { width:340px; height:340px; display:grid; place-items:center; color:#55657C; font-size:20px; text-align:center; }
 #vote-qr img, #vote-qr canvas { display:block; }
+#zoom { position:absolute; inset:0; z-index:60; background:var(--bg); padding:60px 110px 70px; display:none; flex-direction:column; cursor:zoom-out; }
+#zoom.open { display:flex; }
+#zoom .passenger { font-size:30px; }
+#zoom .zl { font-family:var(--cond); font-weight:700; font-size:64px; color:var(--amber); line-height:1; margin:6px 0 14px; }
+#zoom .answer { height:auto; flex:1; min-height:0; font-size:30px; line-height:1.42; cursor:zoom-out; padding:26px 34px; }
+#zoom .hint { position:absolute; right:110px; top:22px; font-size:18px; color:var(--muted); }
+.gauges { display:grid; grid-template-columns:repeat(4, 1fr); gap:22px; }
+.gauge { background:var(--surface); border:1px solid var(--line); border-top:5px solid var(--signal); border-radius:12px; padding:20px 22px; }
+.gauge svg { width:52px; height:52px; fill:none; stroke:var(--amber); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.gauge h3 { font-size:30px; margin:10px 0 2px; }
+.gauge .role { font-family:var(--cond); font-size:22px; color:var(--amber); margin-bottom:12px; }
+.gauge p { font-size:21px; line-height:1.4; margin:0 0 14px; }
+.gauge .pm { font-size:19px; line-height:1.35; color:var(--muted); margin-top:6px; }
+.gauge .plus { color:var(--green); font-weight:700; } .gauge .minus { color:var(--red); font-weight:700; }
+.gscale { margin-top:26px; display:flex; justify-content:space-between; font-family:var(--cond); font-size:22px; color:var(--muted); padding-top:12px; border-top:4px solid; border-image:linear-gradient(90deg, var(--line), var(--signal)) 1; }
+mark.ga, mark.gj { color:inherit; border-radius:4px; padding:1px 0; }
+mark.ga { background:rgba(61,214,140,.18); } mark.gj { background:var(--hl); }
+.tag { display:inline-block; font-family:var(--mono); font-size:.8em; padding:2px 10px; border-radius:6px; margin-right:8px; }
+.tag.ga { background:rgba(61,214,140,.22); } .tag.gj { background:var(--hl); }
+.jpanel { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 26px 18px; }
+.jh { font-family:var(--cond); font-size:28px; color:var(--muted); margin-bottom:14px; } .jh b { color:var(--ink); }
+.jrow { display:grid; grid-template-columns:200px 1fr 64px; align-items:center; gap:14px; padding:12px 0; position:relative; }
+.jn { font-size:24px; font-weight:600; line-height:1.15; } .jn span { display:block; font-size:16px; font-weight:400; color:var(--muted); font-family:var(--mono); }
+.jt { height:26px; background:var(--code-bg); border-radius:6px; overflow:hidden; }
+.jb { height:100%; background:var(--line); border-radius:6px; }
+.jrow.own .jb { background:var(--signal); }
+.js { font-family:var(--mono); font-size:24px; text-align:right; }
+.jtag { position:absolute; left:214px; top:-8px; font-size:15px; color:var(--amber); font-family:var(--cond); letter-spacing:.04em; text-transform:uppercase; }
+.jwin { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:24px; } .jwin b { color:var(--amber); }
+.res { margin-top:12px; font-size:24px; padding:10px 16px; border-radius:8px; background:var(--surface); border:1px solid var(--line); width:fit-content; }
+.res b { color:var(--green); }
+#badge-qr img, #badge-qr canvas { display:block; }
+.badge-share { display:flex; align-items:center; gap:40px; margin-top:34px; }
+.badge-share .qr-box { padding:14px; border-radius:14px; }
 .answer-letter { font-family:var(--cond); font-weight:700; font-size:54px; color:var(--amber); margin-bottom:8px; }
 .passenger { font-size:28px; line-height:1.3; padding:16px 24px; background:var(--code-bg); border-radius:14px 14px 14px 4px; margin-bottom:28px; max-width:none; }
 .ladder li { font-size:27px; margin-bottom:18px; max-width:none; }
@@ -226,8 +282,8 @@ table.matrix td:first-child { font-weight:600; width:22%; }
     <svg class="mark" width="84" height="84" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>
     <span class="small">Builder track · masterclass</span>
   </div>
-  <h1 style="max-width:12ch">Leverandør&shy;uavhengig LLM-arkitektur</h1>
-  <p class="lede muted" style="margin-top:34px">Hvordan du bytter leverandør uten å rive koden i filler.</p>
+  <h1 style="max-width:none">Provider-uavhengig<br>LLM-arkitektur</h1>
+  <p class="lede muted" style="margin-top:34px">Hvordan du bytter provider uten å rive koden i filler.</p>
 </section>
 
 <section class="slide center" data-seg="0">
@@ -319,11 +375,11 @@ Rebookr: I'm sorry your trip has been disrupted. I found…</div>
 </section>
 
 <section class="slide center" data-seg="0">
-  <p class="big-q">Hvor lang tid tar det å bytte LLM-leverandør?</p>
+  <p class="big-q">Hvor lang tid tar det å bytte LLM-provider?</p>
 </section>
 
 <section class="slide" data-seg="0">
-  <h2>Bevis A: <code class="inl" style="font-size:.8em">legacy/</code></h2>
+  <h2>Hva gikk galt? <code class="inl" style="font-size:.8em">legacy/</code></h2>
   <div class="cols wide-left">
     <pre class="sm">import anthropic
 
@@ -342,22 +398,22 @@ def answer_faq(question: str) -> str:
       <li class="step"><strong>4 steder</strong> med hardkodet modellnavn</li>
       <li class="step"><strong>4 steder</strong> som antar Anthropics svarformat</li>
       <li class="step"><strong>0</strong> timeouts, fallbacks eller <code class="inl">try</code></li>
-      <li class="step"><strong>1</strong> leverandør. Ingen plan B.</li>
+      <li class="step"><strong>1</strong> provider. Ingen plan B.</li>
     </ul>
   </div>
   <p class="step" style="font-size:30px;margin-top:26px">Krasjet skyldes manglende <strong>redundans</strong>. At plan B er dyr, skyldes manglende <strong>abstraksjon</strong>.</p>
 </section>
 
-<!-- ============ A2 · HVORFOR LOCK-IN (8–18) ============ -->
+<!-- ============ A2 · PRISEN FOR LOCK-IN (8–18) ============ -->
 <section class="slide" data-seg="1">
-  <h2>Gate A2: Hvorfor binder vi oss?</h2>
+  <h2>Gate A2: Prisen for lock-in</h2>
   <div class="board" data-board="1"></div>
 </section>
 
 <section class="slide" data-seg="1">
   <h2>Fem grunner til at lock-in gjør vondt</h2>
   <div class="reasons">
-    <div><h3>Nedetid</h3><p>Alle leverandører har dårlige dager. Spørsmålet er om kunden merker det.</p></div>
+    <div><h3>Nedetid</h3><p>Alle providers har dårlige dager. Spørsmålet er om kunden merker det.</p></div>
     <div><h3>Pris</h3><p>Prislistene endres ofte, i begge retninger. Kontrakten vår gjør det ikke på samme måte.</p></div>
     <div><h3>Modeller pensjoneres</h3><p>Modellen dere testet mot i dag har en utløpsdato.</p></div>
     <div><h3>Kapabilitet</h3><p>Den beste modellen til én oppgave er sjelden best på alle, og ledelsen skifter.</p></div>
@@ -368,19 +424,19 @@ def answer_faq(question: str) -> str:
 <section class="slide" data-seg="1">
   <h2>Abstraksjon er ikke gratis</h2>
   <ul class="plain">
-    <li class="step"><strong>Laveste fellesnevner.</strong> Leverandørunike funksjoner er vanskelige å abstrahere uten å miste dem.</li>
+    <li class="step"><strong>Laveste fellesnevner.</strong> Provider-spesifikke funksjoner er vanskelige å abstrahere uten å miste dem.</li>
     <li class="step"><strong>Mer kode å eie.</strong> Hvert lag skal testes, dokumenteres og vedlikeholdes.</li>
     <li class="step"><strong>Prompts flytter ikke på seg selv.</strong> Portabel kode betyr ikke portabel kvalitet.</li>
   </ul>
   <div class="callout step" style="margin-top:50px">
-    <p class="lede" style="margin:0">Målet er ikke null lock-in. Målet er at byttet blir en velbegrunnet beslutning.</p>
+    <p class="lede" style="margin:0">Målet er ikke null lock-in. Målet er at et bytte av provider blir et valg dere tar når det lønner seg, ikke et nødprosjekt.</p>
   </div>
 </section>
 
 <section class="slide" data-seg="1">
   <h2>Hvor mye abstraksjon er nok?</h2>
   <div class="line-scale" aria-hidden="true"></div>
-  <div class="line-ends"><span>Én leverandør, full fart</span><span>Abstraher alt</span></div>
+  <div class="line-ends"><span>Én provider, full fart</span><span>Abstraher alt</span></div>
   <ul class="plain" style="margin-top:46px">
     <li class="step"><span class="pin-inline">1</span>Intern FAQ-bot for 200 ansatte, prototype på to uker</li>
     <li class="step"><span class="pin-inline">2</span>Saksbehandlingsassistent for en kommune, skal leve i fem år</li>
@@ -402,12 +458,17 @@ def answer_faq(question: str) -> str:
 </section>
 
 <section class="slide" data-seg="2">
-  <h2>Samme kall. Tre leverandører. Finn forskjellene.</h2>
-  <p class="lede">Lagvis. Skriv ned hver forskjell dere finner. Laget med flest riktige vinner.</p>
-  <div class="countdown-wrap" style="margin-top:50px"><span class="countdown" data-min="4">04:00</span><span class="small">Klikk for å starte</span></div>
+  <h2>Samme kall. Tre providers. Finn forskjellene.</h2>
+  <p class="lede">Neste slide viser det samme kallet skrevet mot Anthropic, OpenAI og Azure OpenAI: en melding, et tool og svaret tilbake.</p>
+  <ul class="plain" style="margin-top:34px;font-size:30px">
+    <li>Lagvis: skriv ned hver forskjell dere finner i koden</li>
+    <li>Fire minutter, nedtellingen står på neste slide</li>
+    <li>Ett poeng per riktig forskjell. Flest poeng vinner.</li>
+  </ul>
 </section>
 
 <section class="slide code3" data-seg="2" style="padding-top:56px">
+  <div class="countdown-wrap" style="position:absolute;top:14px;right:110px;z-index:2"><span class="countdown" data-min="4" style="font-size:42px">04:00</span><span class="small">Klikk for å starte</span></div>
   <div class="cols three">
     <div><div class="label">Anthropic</div>
 <pre class="tiny">client = anthropic.Anthropic()
@@ -478,18 +539,84 @@ resp = client.chat.completions.create(
   </div>
 </section>
 
-<section class="slide" data-seg="2">
-  <h2>Fasit</h2>
-  <ol class="diffs" style="margin:0;padding:0">
-    <li class="step"><strong>System-prompt:</strong> egen parameter hos Anthropic, første melding hos OpenAI</li>
-    <li class="step"><strong>Lengde:</strong> <code class="inl">max_tokens</code> er påkrevd hos Anthropic, OpenAI bruker <code class="inl">max_completion_tokens</code></li>
-    <li class="step"><strong>Verktøyskjema:</strong> <code class="inl">input_schema</code> mot <code class="inl">function.parameters</code></li>
-    <li class="step"><strong>Verktøyargumenter:</strong> ferdig dict mot en JSON-streng du må parse selv</li>
-    <li class="step"><strong>Verktøyresultat:</strong> blokk i en user-melding mot egen <code class="inl">role="tool"</code>-melding</li>
-    <li class="step"><strong>Svarformat:</strong> liste av typede blokker mot <code class="inl">choices[0].message</code></li>
-    <li class="step"><strong>Azure:</strong> <code class="inl">model</code> er ditt deployment-navn, pluss endepunkt og <code class="inl">api_version</code></li>
-    <li class="step"><strong>Feil:</strong> 529 Overloaded mot 503, og ulike felter i feilmeldingen</li>
-  </ol>
+<section class="slide code3 fasit" data-seg="2" style="padding-top:40px">
+  <div class="fasit-tag">Fasit</div>
+  <div class="cols three">
+    <div><div class="label">Anthropic</div>
+<pre class="tiny">client = anthropic.Anthropic()
+
+resp = client.messages.create(
+  model="claude-sonnet-5-5",
+  <mark data-n="2">max_tokens=800,</mark>
+  <mark data-n="1">system="You are Rebookr.",</mark>
+  messages=[
+    {"role": "user",
+     "content": "Rebook me"}],
+  tools=[{
+    "name": "search_flights",
+    "description": "...",
+    <mark data-n="3">"input_schema"</mark>: {...}}],
+)
+
+<mark data-n="6">call = resp.content[0]</mark>
+<mark data-n="4">args = call.input</mark>
+
+
+# tilbake til modellen:
+<mark data-n="5">{"role": "user", "content": [</mark>
+  <mark data-n="5">{"type": "tool_result",</mark>
+   <mark data-n="5">"tool_use_id"</mark>: call.id,
+   "content": result}]}</pre></div>
+    <div><div class="label">OpenAI</div>
+<pre class="tiny">client = openai.OpenAI()
+
+resp = client.chat.completions.create(
+  model="gpt-5.5",
+  <mark data-n="2">max_completion_tokens=800,</mark>
+  messages=[
+    <mark data-n="1">{"role": "system",</mark>
+     <mark data-n="1">"content": "You are Rebookr."},</mark>
+    {"role": "user",
+     "content": "Rebook me"}],
+  tools=[<mark data-n="3">{"type": "function",</mark>
+    <mark data-n="3">"function": {</mark>
+      "name": "search_flights",
+      "description": "...",
+      <mark data-n="3">"parameters"</mark>: {...}}}],
+)
+<mark data-n="6">msg = resp.choices[0].message</mark>
+<mark data-n="6">call = msg.tool_calls[0]</mark>
+args = <mark data-n="4">json.loads(</mark>
+  <mark data-n="4">call.function.arguments)</mark>
+
+# tilbake til modellen:
+<mark data-n="5">{"role": "tool",</mark>
+ <mark data-n="5">"tool_call_id"</mark>: call.id,
+ "content": result}</pre></div>
+    <div><div class="label">Azure OpenAI</div>
+<pre class="tiny">client = openai.AzureOpenAI(
+  <mark data-n="7">azure_endpoint=</mark>
+    <mark data-n="7">"https://asyncair-eu"</mark>
+    <mark data-n="7">".openai.azure.com",</mark>
+  <mark data-n="7">api_version="2024-10-21",</mark>
+)
+resp = client.chat.completions.create(
+  <mark data-n="7">model="rebookr-smart",</mark>
+  <mark data-n="2">max_completion_tokens=800,</mark>
+  messages=[...],
+  tools=[...],
+)
+
+# resten som OpenAI</pre></div>
+  </div>
+  <div class="cap step" data-n="1"><span class="num">1</span><div><strong>System-prompt:</strong> egen <code class="inl">system</code>-parameter hos Anthropic, første melding med <code class="inl">role: "system"</code> hos OpenAI</div></div>
+  <div class="cap step" data-n="2"><span class="num">2</span><div><strong>Lengde:</strong> <code class="inl">max_tokens</code> er påkrevd hos Anthropic. OpenAI og Azure bruker <code class="inl">max_completion_tokens</code></div></div>
+  <div class="cap step" data-n="3"><span class="num">3</span><div><strong>Tool schema:</strong> <code class="inl">input_schema</code> hos Anthropic, pakket inn i <code class="inl">type: "function"</code> og <code class="inl">parameters</code> hos OpenAI</div></div>
+  <div class="cap step" data-n="4"><span class="num">4</span><div><strong>Tool-argumenter:</strong> ferdig dict (<code class="inl">call.input</code>) mot en JSON-streng du må <code class="inl">json.loads</code> selv</div></div>
+  <div class="cap step" data-n="5"><span class="num">5</span><div><strong>Tool result:</strong> en <code class="inl">tool_result</code>-blokk i en user-melding mot en egen melding med <code class="inl">role: "tool"</code></div></div>
+  <div class="cap step" data-n="6"><span class="num">6</span><div><strong>Svarformat:</strong> liste av typede blokker (<code class="inl">resp.content</code>) mot <code class="inl">resp.choices[0].message</code></div></div>
+  <div class="cap step" data-n="7"><span class="num">7</span><div><strong>Azure:</strong> <code class="inl">model</code> er deployment-navnet ditt, og du trenger <code class="inl">azure_endpoint</code> og <code class="inl">api_version</code></div></div>
+  <div class="cap step" data-n="8"><span class="num">8</span><div><strong>Feil (synes ikke i koden):</strong> 529 Overloaded hos Anthropic mot 503 hos OpenAI, med ulike felter i feilmeldingen</div></div>
 </section>
 
 <section class="slide" data-seg="2">
@@ -497,10 +624,10 @@ resp = client.chat.completions.create(
   <table class="matrix">
     <thead><tr><th></th><th>Anthropic</th><th>OpenAI</th><th>Azure OpenAI</th></tr></thead>
     <tbody>
-      <tr><td>Verktøykall</td><td><code class="inl">tool_use</code>-blokker, argumenter som objekt</td><td><code class="inl">tool_calls</code>, argumenter som JSON-streng</td><td>Som OpenAI</td></tr>
-      <tr><td>Strømming</td><td>Navngitte SSE-hendelser per blokk</td><td>Delta-biter; verktøykall kommer i fragmenter</td><td>Som OpenAI</td></tr>
+      <tr><td>Tool calls</td><td><code class="inl">tool_use</code>-blokker, argumenter som objekt</td><td><code class="inl">tool_calls</code>, argumenter som JSON-streng</td><td>Som OpenAI</td></tr>
+      <tr><td>Streaming</td><td>Navngitte SSE-hendelser per blokk</td><td>Delta-biter; tool calls kommer i fragmenter</td><td>Som OpenAI</td></tr>
       <tr><td>Bilder</td><td><code class="inl">image</code>-blokk med base64</td><td><code class="inl">image_url</code>, ofte som data-URL</td><td>Som OpenAI, avhengig av deployment</td></tr>
-      <tr><td>Feil underveis</td><td><code class="inl">error</code>-hendelse midt i strømmen</td><td>Feil-chunk midt i strømmen</td><td>Som OpenAI, pluss innholdsfilter (HTTP 400)</td></tr>
+      <tr><td>Feil underveis</td><td><code class="inl">error</code>-hendelse midt i streamen</td><td>Feil-chunk midt i streamen</td><td>Som OpenAI, pluss content filter (HTTP 400)</td></tr>
     </tbody>
   </table>
   <p class="small" style="margin-top:28px">Alle tre støtter også strukturert JSON-output, med ulike parametere.</p>
@@ -517,7 +644,7 @@ resp = client.chat.completions.create(
       <li><strong>Region:</strong> dere velger hvor dataene behandles, for eksempel i EU</li>
       <li><strong>Deployment:</strong> <code class="inl">model</code> er navnet dere ga deploymenten</li>
       <li><strong>Kvoter:</strong> settes per deployment, ikke per konto</li>
-      <li><strong>Innholdsfilter:</strong> et ekstra lag som kan avvise forespørsler</li>
+      <li><strong>Content filter:</strong> et ekstra lag som kan avvise forespørsler</li>
       <li><strong>Katalogen:</strong> har flere modellfamilier enn OpenAI</li>
       <li><strong>AI Gateway:</strong> kundens API Management foran modellene, med egne nøkler, kvoter og logging</li>
     </ul>
@@ -531,21 +658,23 @@ resp = client.chat.completions.create(
 
 <section class="slide" data-seg="3">
   <h2>Arkitekturen</h2>
-  <svg viewBox="0 0 1380 560" width="1380" height="560" role="img" aria-label="Agent, model-ruter, tre adaptere og leverandørene" style="font-family:var(--cond)">
+  <svg viewBox="0 0 1380 566" width="1380" height="566" role="img" aria-label="Agent, model router, tre adaptere og providerne" style="font-family:var(--cond)">
     <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/></marker></defs>
     <g style="font-size:30px;font-weight:600">
       <rect x="0" y="210" width="230" height="110" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
       <text x="115" y="262" text-anchor="middle" style="fill:var(--ink)">agent.py</text>
-      <text x="115" y="296" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">null leverandører</text>
+      <text x="115" y="296" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">null providers</text>
 
       <rect x="330" y="190" width="290" height="150" rx="12" style="fill:var(--surface);stroke:var(--signal);stroke-width:4"/>
       <text x="475" y="252" text-anchor="middle" style="fill:var(--ink)">ModelRouter</text>
-      <text x="475" y="288" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">ruter · fallback</text>
+      <text x="475" y="288" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">routes · fallback</text>
       <text x="475" y="316" text-anchor="middle" style="fill:var(--muted);font-size:22px;font-weight:500">circuit breaker</text>
 
       <rect x="350" y="400" width="250" height="70" rx="10" style="fill:var(--code-bg)"/>
       <text x="475" y="445" text-anchor="middle" style="fill:var(--ink);font-family:var(--mono);font-size:22px;font-weight:400">config.toml</text>
 
+      <rect x="688" y="6" width="374" height="502" rx="18" style="fill:none;stroke:var(--signal);stroke-width:2.5;stroke-dasharray:10 8"/>
+      <text x="875" y="31" text-anchor="middle" style="fill:var(--amber);font-size:21px;font-weight:700;letter-spacing:3px">ADAPTERE</text>
       <rect x="705" y="40" width="340" height="100" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
       <text x="875" y="100" text-anchor="middle" style="fill:var(--ink)">AnthropicProvider</text>
       <rect x="705" y="215" width="340" height="100" rx="12" style="fill:var(--surface);stroke:var(--ink);stroke-width:2"/>
@@ -565,7 +694,8 @@ resp = client.chat.completions.create(
       <path d="M1045 90 L1120 90"/><path d="M1045 265 L1120 265"/><path d="M1045 440 L1120 440"/>
       <path d="M475 395 L475 345"/>
     </g>
-    <text x="0" y="530" style="fill:var(--muted);font-size:24px">Til venstre for adapterne finnes bare nøytrale typer (types.py). Til høyre finnes bare leverandørformat.</text>
+    <text x="0" y="532" style="fill:var(--ink);font-size:24px">En adapter oversetter mellom vår nøytrale kontrakt (types.py) og én providers SDK, begge veier.</text>
+    <text x="0" y="558" style="fill:var(--muted);font-size:22px">Til venstre for adapterne finnes bare nøytrale typer. Til høyre finnes bare providerformat.</text>
   </svg>
 </section>
 
@@ -589,8 +719,8 @@ class ChatResponse:
     model: str</pre>
     <div>
       <p>Ingenting her vet hvem som svarer.</p>
-      <p class="muted">Adapterne oversetter begge veier, og gjør leverandørfeil om til våre egne: <code class="inl">ProviderUnavailable</code>, <code class="inl">RateLimited</code>, <code class="inl">BadRequest</code>.</p>
-      <p class="muted">Bare de to første får ruteren til å prøve neste leverandør.</p>
+      <p class="muted">Adapterne oversetter begge veier, og gjør providerfeil om til våre egne: <code class="inl">ProviderUnavailable</code>, <code class="inl">RateLimited</code>, <code class="inl">BadRequest</code>.</p>
+      <p class="muted">Bare de to første får routeren til å prøve neste provider.</p>
     </div>
   </div>
 </section>
@@ -599,15 +729,22 @@ class ChatResponse:
   <h2>Øvelse 1: Fullfør OpenAI-adapteren</h2>
   <div class="cols wide-left">
     <div>
-      <p>Anthropic er nede og Rebookr har ingen reserve. Åpne <code class="inl">rebookr/llm/openai_provider.py</code> og løs TODO 1, 2 og 3.</p>
-      <div class="term" style="font-size:22px;margin:26px 0"><span class="p">$</span> pytest tests/test_openai_provider.py -v</div>
-      <p class="small">Står dere fast: <code class="inl">bash scripts/reveal_solutions.sh</code></p>
+      <p>Anthropic er nede og Rebookr har ingen reserve. Løs TODO 1, 2 og 3 i OpenAI-adapteren.</p>
+      <div class="term" style="font-size:20px;margin:22px 0"><span style="color:#7F8DA3"># lagnavn + kontrolltårn, én gang</span>
+<span class="p">$</span> python -m rebookr join "lagnavn"
+<span class="p">$</span> code rebookr/llm/openai_provider.py
+<span class="p">$</span> pytest tests/test_openai_provider.py -v</div>
+      <div class="step">
+        <p class="small" style="margin:0 0 8px">Står dere fast?</p>
+        <div class="term" style="font-size:20px"><span class="p">$</span> bash scripts/reveal_solutions.sh</div>
+        <p class="small" style="margin-top:8px">Overskriver <code class="inl">openai_provider.py</code> med fasiten. Deres versjon lagres som <code class="inl">openai_provider.py.mine</code>.</p>
+      </div>
     </div>
     <div>
       <div class="countdown-wrap"><span class="countdown" data-min="15">15:00</span></div>
       <ul class="plain small" style="margin-top:30px">
         <li>TODO 1: hvor bor system-prompten hos OpenAI?</li>
-        <li>TODO 2: ett verktøyresultat blir én melding</li>
+        <li>TODO 2: ett tool result blir én melding</li>
         <li>TODO 3: <code class="inl">arguments</code> er en streng</li>
       </ul>
     </div>
@@ -626,11 +763,11 @@ class ChatResponse:
             api_version=api_version,
             max_retries=0,
         )</pre>
-  <p class="lede step" style="margin-top:40px">Når én adapter finnes, er den neste ofte bare en konstruktør.</p>
+  <p class="lede step" style="margin-top:40px">Når én adapter finnes, er den neste ofte bare en constructor.</p>
 </section>
 
 <section class="slide" data-seg="3">
-  <h2>Model-ruteren</h2>
+  <h2>Model routeren</h2>
   <div class="cols two">
 <div>
 <pre class="sm">[routes.faq]
@@ -665,13 +802,14 @@ chain = ["azure:smart"]</pre>
   <table class="matrix">
     <thead><tr><th></th><th>Hva det er</th><th>Passer når</th></tr></thead>
     <tbody>
-      <tr><td>Egen tynn abstraksjon</td><td>Det dere nettopp bygde</td><td>Dere vil eie kontrakten og trenger få leverandører</td></tr>
-      <tr><td>LiteLLM</td><td>Python-bibliotek og proxy med felles API mot mange leverandører</td><td>Dere vil ha bredde raskt og kan leve med deres abstraksjon</td></tr>
+      <tr><td>Egen tynn abstraksjon</td><td>Det dere nettopp bygde</td><td>Dere vil eie kontrakten og trenger få providers</td></tr>
+      <tr><td>LiteLLM</td><td>Python-bibliotek og proxy med felles API mot mange providers</td><td>Dere vil ha bredde raskt og kan leve med deres abstraksjon</td></tr>
       <tr><td>Vercel AI SDK</td><td>TypeScript-SDK med felles grensesnitt</td><td>Frontend- og Node-tunge team</td></tr>
       <tr><td>Skyplattformer</td><td>Bedrock, Foundry, Vertex: flere modellfamilier bak én konto</td><td>Kunden har allerede skyavtalen</td></tr>
     </tbody>
   </table>
-  <p class="lede step" style="margin-top:36px">Dere bytter én lock-in mot en annen. Gjør det med vilje.</p>
+  <p class="step" style="margin-top:20px;font-size:26px;max-width:none"><strong>Sjekk kunden først:</strong> retningslinjer for bruk av tredjeparter, lisenser og innkjøpsavtaler avgjør ofte valget før teknologien gjør det.</p>
+  <p class="lede step" style="margin-top:14px;max-width:none;font-size:36px">Dere bytter én lock-in mot en annen. Gjør det med vilje.</p>
 </section>
 
 <section class="slide" data-seg="3">
@@ -709,10 +847,11 @@ export interface LLMProvider {
 
 <section class="slide" data-seg="4">
   <h2>Øvelse 2: Overlev stormen</h2>
-  <div class="term" style="font-size:24px;line-height:1.7"><span class="p">$</span> export MOCK_URL="<span contenteditable="true" spellcheck="false" data-key="tower" class="g">https://din-codespace-8787.app.github.dev</span>"
-<span class="p">$</span> export ASYNCAIR_TEAM="lagnavn"
+  <div class="term" style="font-size:24px;line-height:1.7"><span style="color:#7F8DA3"># joinet allerede på øvelse 1? Hopp over første linje</span>
+<span class="p">$</span> python -m rebookr join "lagnavn"
 <span class="p">$</span> python -m rebookr storm</div>
-  <div class="cols two" style="margin-top:40px">
+  <p class="small" style="margin-top:14px;max-width:none">Kontrolltårnet: <span contenteditable="true" spellcheck="false" data-key="tower" style="font-family:var(--mono);color:var(--amber)">https://din-codespace-8787.app.github.dev</span></p>
+  <div class="cols two" style="margin-top:28px">
     <p>Når den røde knappen trykkes: holder Rebookr seg oppe? Følg med på resultattavla.</p>
     <p class="muted small">Prøv i <code class="inl">config.toml</code>: endre rekkefølgen i kjeden, senk <code class="inl">breaker_failures</code>, sett <code class="inl">retries_per_provider = 1</code>.</p>
   </div>
@@ -725,24 +864,24 @@ export interface LLMProvider {
 
 <section class="slide" data-seg="4">
   <h2>Fallback, lag for lag</h2>
-  <p class="small" style="margin:-14px 0 26px">Redundans er mer enn en reserveleverandør. Det er fem lag.</p>
+  <p class="small" style="margin:-14px 0 26px">Redundans er mer enn en reserve-provider. Det er fem lag.</p>
   <ol class="ladder" style="padding-left:40px;margin:0">
-    <li><b>Timeout</b>En treg leverandør er en nede leverandør. Sett grensen bevisst.</li>
-    <li><b>Retry med backoff</b>Én gang til på samme leverandør, med økende venting. Bare for feil som kan gå over.</li>
-    <li><b>Neste i kjeden</b>Videre til neste leverandør. Aldri ved 400: da er feilen vår.</li>
+    <li><b>Timeout</b>En treg provider er en nede provider. Sett grensen bevisst.</li>
+    <li><b>Retry med backoff</b>Én gang til på samme provider, med økende venting. Bare for feil som kan gå over.</li>
+    <li><b>Neste i kjeden</b>Videre til neste provider. Aldri ved 400: da er feilen vår.</li>
     <li><b>Circuit breaker</b>Etter N feil på rad slutter vi å banke på en stund.</li>
     <li><b>Grasiøs degradering</b>Alt er nede? Et ærlig svar og en menneskelig agent slår en stack trace.</li>
   </ol>
 </section>
 
 <section class="slide" data-seg="4">
-  <h2>Når strømmen ryker midt i svaret</h2>
+  <h2>Når streamen ryker midt i svaret</h2>
   <div class="passenger" style="max-width:1150px">Under EU-reglene kan du ha rett på assistanse og i noen tilfeller kompensasjon, men stormer regnes vanligvis som ekstraord<span class="dim-red">▌</span></div>
-  <p>Fallback er bare trygt <strong>før første token</strong>. Etterpå ville en ny leverandør limt et nytt svar på det gamle.</p>
+  <p>Fallback er bare trygt <strong>før første token</strong>. Etterpå ville en ny provider limt et nytt svar på det gamle.</p>
   <ul class="plain small step" style="margin-top:20px">
     <li>Vis «forbindelsen brøt» og la brukeren prøve igjen</li>
-    <li>Kjør hele runden på nytt uten strømming</li>
-    <li>Hold igjen de første tokenene til du vet at strømmen er stabil</li>
+    <li>Kjør hele runden på nytt uten streaming</li>
+    <li>Hold igjen de første tokenene til du vet at streamen er stabil</li>
   </ul>
 </section>
 
@@ -760,7 +899,7 @@ export interface LLMProvider {
   <h2>Blindtest</h2>
   <div class="cols wide-left" style="align-items:center">
     <div>
-      <p class="lede">Tre passasjerer. Tre svar hver. Én leverandør bak hvert svar, men dere vet ikke hvilken.</p>
+      <p class="lede">Tre passasjerer. Tre svar hver. Én provider bak hvert svar, men dere vet ikke hvilken.</p>
       <p>Stem på svaret du ville ønsket deg som passasjer.</p>
       <p style="margin-top:34px">Skann koden, eller gå til:</p>
       <p class="vote-url" style="font-family:var(--mono);font-size:22px;color:var(--amber);word-break:break-all;max-width:none"></p>
@@ -830,51 +969,79 @@ export interface LLMProvider {
 
 <section class="slide" data-seg="5">
   <h2>Magefølelse er ikke måling</h2>
-  <ul class="plain ladder">
-    <li><b>Assertions</b>Deterministiske sjekker: riktig verktøy, riktig språk, ingen lovte beløp, under 120 ord. Billig og objektivt.</li>
-    <li class="step"><b>LLM som dommer</b>En modell scorer hvert svar 1–5 mot en rubrikk. Skalerer, men har egne preferanser.</li>
-    <li class="step"><b>Driftstall</b>Latens, kostnad per samtale, feilrate. Ofte det som avgjør.</li>
-    <li class="step"><b>Mennesker</b>Stikkprøver for å kalibrere alt over. Slik dere nettopp gjorde.</li>
-  </ul>
+  <p class="small" style="margin:-14px 0 26px;max-width:none">Fire instrumenter i cockpit. Ingen av dem holder alene.</p>
+  <div class="gauges">
+    <div class="gauge">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="6" width="30" height="38" rx="4"/><path d="M15 17l3 3 5-6M15 28l3 3 5-6M27 18h7M27 29h7"/></svg>
+      <h3>Assertions</h3><div class="role">Sjekklisten før avgang</div>
+      <p>Kode som sjekker det som kan sjekkes: riktig tool, riktig språk, ingen lovte beløp, maks 120 ord.</p>
+      <div class="pm"><span class="plus">+</span> billig, deterministisk, kjører i CI</div>
+      <div class="pm"><span class="minus">−</span> ser ikke tone eller hjelpsomhet</div>
+    </div>
+    <div class="gauge step">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8v32M12 40h24M10 16h28M10 16l-5 12h10zM38 16l-5 12h10z"/></svg>
+      <h3>LLM-as-a-judge</h3><div class="role">Andrepiloten</div>
+      <p>En modell scorer hvert svar 1–5 mot en rubrikk du har skrevet.</p>
+      <div class="pm"><span class="plus">+</span> skalerer, fanger tone og kvalitet</div>
+      <div class="pm"><span class="minus">−</span> har egne favoritter</div>
+    </div>
+    <div class="gauge step">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 34a16 16 0 0 1 32 0"/><path d="M24 34l8-11"/><circle cx="24" cy="34" r="2.5"/></svg>
+      <h3>Driftstall</h3><div class="role">Instrumentpanelet</div>
+      <p>Svartid, kost per samtale og feilrate, målt på de samme casene.</p>
+      <div class="pm"><span class="plus">+</span> objektivt, ofte det kunden merker først</div>
+      <div class="pm"><span class="minus">−</span> sier ingenting om svaret er riktig</div>
+    </div>
+    <div class="gauge step">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 28v-4a14 14 0 0 1 28 0v4"/><rect x="7" y="27" width="7" height="11" rx="2"/><rect x="34" y="27" width="7" height="11" rx="2"/><path d="M38 38q0 5-9 5"/></svg>
+      <h3>Mennesker</h3><div class="role">Flygelederen</div>
+      <p>Stikkprøver som kalibrerer alt over. Slik dere nettopp gjorde.</p>
+      <div class="pm"><span class="plus">+</span> fanger det ingen skrev en test for</div>
+      <div class="pm"><span class="minus">−</span> dyrt og tregt</div>
+    </div>
+  </div>
+  <div class="gscale step"><span>billig · automatisk · objektivt</span><span>dyrt · manuelt · nyansert</span></div>
 </section>
 
 <section class="slide" data-seg="5">
-  <h2>Et golden set er bare en fil</h2>
-<pre class="sm" style="white-space:pre-wrap">{"id": "compensation_amount",
- "input": "Will I get 600 euros compensation for my cancelled flight?",
- "must_include_any": ["extraordinary"],
+  <h2>Golden set: fasiten vi måler mot</h2>
+  <p style="max-width:none;margin:-6px 0 22px">Et golden set er et fast sett testcaser med forventet oppførsel. Samme fil kjøres mot hver provider, hver prompt-endring og hvert modellbytte.</p>
+  <div class="cols wide-left">
+<pre class="sm" style="white-space:pre-wrap;font-size:18px">{"id": "compensation_amount",
+ "input": "Will I get 600 euros compensation
+           for my cancelled flight?",
+ <mark class="ga">"must_include_any": ["extraordinary"],
  "must_not_include": ["you will receive 600"],
  "language": "en",
- "max_words": 150,
- "rubric": "Explains extraordinary circumstances, mentions that care is covered, never promises an amount."}</pre>
-  <div class="term" style="font-size:22px;margin-top:30px"><span class="p">$</span> python -m evals.run --judge openai</div>
-  <p class="small" style="margin-top:20px">12 caser: sinte passasjerer, norsk, prompt injection, kompensasjonsfeller, oppgaver utenfor scope.</p>
-</section>
-
-<section class="slide" data-seg="5">
-  <h2>Dommeren har en favoritt</h2>
-  <p class="lede">En modell som dømmer egne svar, har en tendens til å like sin egen stil.</p>
-  <div class="cols two" style="margin-top:20px">
-    <table class="matrix" style="font-size:28px">
-      <thead><tr><th>Lørdag</th><th>Dommer: OpenAI</th><th>Dommer: Anthropic</th></tr></thead>
-      <tbody>
-        <tr><td>Anthropic</td><td>4,50</td><td><strong>4,25</strong></td></tr>
-        <tr><td>OpenAI</td><td><strong>4,92</strong></td><td>4,08</td></tr>
-        <tr><td>Azure</td><td>4,25</td><td>3,50</td></tr>
-      </tbody>
-    </table>
-    <ul class="plain step" style="font-size:28px">
-      <li>Samme svar. Ny dommer. Ny vinner.</li>
-      <li>Bruk en annen leverandør som dommer enn den som testes</li>
-      <li>Kalibrer mot mennesker: stemte dommeren som dere?</li>
+ "max_words": 150,</mark>
+ <mark class="gj">"rubric": "Explains extraordinary circumstances,
+   mentions that care is covered, never
+   promises an amount."</mark>}</pre>
+    <ul class="plain" style="font-size:24px">
+      <li><span class="tag ga">assertions</span> sjekker feltene som kan sjekkes med kode</li>
+      <li><span class="tag gj">judge</span> leser rubrikken og gir 1–5</li>
+      <li class="small" style="margin-top:22px">12 caser: sinte passasjerer, norsk, prompt injection, kompensasjonsfeller, spørsmål utenfor scope.</li>
+      <li><div class="term" style="font-size:19px;padding:14px 18px"><span class="p">$</span> python -m evals.run --judge openai</div></li>
     </ul>
   </div>
 </section>
 
 <section class="slide" data-seg="5">
-  <h2>Å flytte en prompt</h2>
+  <h2>Judgen har en favoritt</h2>
+  <p class="small" style="margin:-14px 0 26px;max-width:none">Samme svar fra de samme tre providerne. Bare judgen er byttet ut.</p>
+  <div class="cols two judges">
+    <div class="jpanel"><div class="jh">Judge: <b>OpenAI</b></div><div class="jrow"><div class="jn">Anthropic<span>claude-sonnet-5-5</span></div><div class="jt"><div class="jb" style="width:87.5%"></div></div><div class="js">4,50</div></div><div class="jrow own"><div class="jn">OpenAI<span>gpt-5.5</span></div><div class="jt"><div class="jb" style="width:98.0%"></div></div><div class="js">4,92</div><div class="jtag">egen modell</div></div><div class="jrow own"><div class="jn">Azure<span>gpt-5</span></div><div class="jt"><div class="jb" style="width:81.2%"></div></div><div class="js">4,25</div><div class="jtag">samme modellfamilie</div></div><div class="jwin">Vinner: <b>OpenAI</b></div></div>
+    <div class="jpanel step"><div class="jh">Judge: <b>Anthropic</b></div><div class="jrow own"><div class="jn">Anthropic<span>claude-sonnet-5-5</span></div><div class="jt"><div class="jb" style="width:81.2%"></div></div><div class="js">4,25</div><div class="jtag">egen modell</div></div><div class="jrow"><div class="jn">OpenAI<span>gpt-5.5</span></div><div class="jt"><div class="jb" style="width:77.0%"></div></div><div class="js">4,08</div></div><div class="jrow"><div class="jn">Azure<span>gpt-5</span></div><div class="jt"><div class="jb" style="width:62.5%"></div></div><div class="js">3,50</div></div><div class="jwin">Vinner: <b>Anthropic</b></div></div>
+  </div>
+  <p class="lede step" style="margin-top:26px;max-width:none">Bruk en annen provider som judge enn den du tester, og kalibrer mot mennesker.</p>
+</section>
+
+<section class="slide" data-seg="5">
+  <h2>Tåler prompten å flytte til en annen provider?</h2>
+  <p class="small" style="margin:-14px 0 22px;max-width:none">Samme oppgave, to prompter, målt med golden set-et på OpenAI (gpt-5.5).</p>
   <div class="cols two">
-<pre class="tiny">&lt;instructions&gt;
+<div><div class="label">Skrevet for Claude (XML-tagger)</div>
+<pre class="tiny" style="font-size:16px">&lt;instructions&gt;
 - Acknowledge the disruption briefly
   and sincerely, once.
 - Use the search_flights tool before
@@ -885,7 +1052,9 @@ export interface LLMProvider {
 &lt;tone&gt;
 Calm, warm, concrete.
 &lt;/tone&gt;</pre>
-<pre class="tiny"># Rules
+<div class="res"><b>12/12</b> bestått · judge <b>4,92</b></div></div>
+<div><div class="label">Portabel (Markdown)</div>
+<pre class="tiny" style="font-size:16px"># Rules
 1. Acknowledge the disruption once,
    briefly and sincerely.
 2. ALWAYS call `search_flights` before
@@ -897,22 +1066,22 @@ Plain text only. No markdown headings.
 
 # Tone
 Calm, warm and concrete.</pre>
+<div class="res"><b>12/12</b> bestått · judge <b>4,83</b></div></div>
   </div>
-  <p class="lede" style="margin-top:36px">Mål før. Flytt. Mål etter. Juster. Mål igjen.</p>
-  <p class="muted">Lørdag på OpenAI: Claude-prompten 12/12 og 4,92, den portable 12/12 og 4,83. Prompten tålte flyttingen, men det visste vi først etter å ha målt.</p>
+  <p class="lede step" style="margin-top:22px;max-width:none">Forskjellen er støy. Men det visste vi først etter å ha målt.</p>
 </section>
 
 <section class="slide" data-seg="5">
-  <h2>Lørdagens tall</h2>
+  <h2>Testresultater: samme golden set, tre providers</h2>
   <table class="matrix" style="font-size:28px">
-    <thead><tr><th>Leverandør</th><th>Assertions</th><th>Dommer (1–5)</th><th>p50 latens</th><th>Kost per 100 samtaler</th></tr></thead>
+    <thead><tr><th>Provider</th><th>Bestått<br><span class="small">av 12 testcaser</span></th><th>Judge-score<br><span class="small">1–5, snitt</span></th><th>Svartid<br><span class="small">median</span></th></tr></thead>
     <tbody>
-      <tr><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td><td>12/12</td><td>4,50</td><td>3,4 s</td><td>–</td></tr>
-      <tr><td>OpenAI<br><span class="small">gpt-5.5</span></td><td>12/12</td><td>4,92</td><td>3,9 s</td><td>–</td></tr>
-      <tr><td>Azure<br><span class="small">gpt-5</span></td><td>10/12</td><td>4,25</td><td>16,1 s</td><td>–</td></tr>
+      <tr><td>Anthropic<br><span class="small">claude-sonnet-5-5</span></td><td><b class="ok">12</b> / 12</td><td>4,50</td><td>3,4 s</td></tr>
+      <tr><td>OpenAI<br><span class="small">gpt-5.5</span></td><td><b class="ok">12</b> / 12</td><td>4,92</td><td>3,9 s</td></tr>
+      <tr><td>Azure<br><span class="small">gpt-5</span></td><td><b class="dim-red">10</b> / 12<br><span class="small">strøk på: svar på norsk, maks 120 ord</span></td><td>4,25</td><td class="dim-red">16,1 s</td></tr>
     </tbody>
   </table>
-  <p class="small" style="margin-top:24px">Fra lørdagens kjøring: 12 caser, prompt rebookr.claude.md, dommer OpenAI (som også dømmer sine egne svar). Kost vises ikke fordi prisene ikke er verifisert.</p>
+  <p class="small" style="margin-top:22px;max-width:none">«Bestått» betyr at alle assertions i casen holdt. Kjørt før kurset med prompten rebookr.claude.md. Judge: OpenAI, som også scorer sine egne svar (slide 42). Kost er utelatt fordi prisene ikke er verifisert.</p>
 </section>
 
 <!-- ============ C1 · TILBAKE TIL FREDAG (80–90) ============ -->
@@ -923,11 +1092,10 @@ Calm, warm and concrete.</pre>
 
 <section class="slide" data-seg="6">
   <h2>Fredag 16:47, igjen</h2>
-  <p class="lede">Tavla sa: <span contenteditable="true" data-key="guess" style="color:var(--amber)">«to uker»</span>. Nå:</p>
 <pre style="font-size:26px;margin-top:20px;width:1250px">[routes.rebooking]
 <span class="del">- chain = ["anthropic:smart", "openai:smart", "azure:smart"]</span>
 <span class="add">+ chain = ["openai:smart", "anthropic:smart", "azure:smart"]</span></pre>
-  <p class="lede step" style="margin-top:40px">Én linje. Ingen deploy av ny kode. Og et golden set som forteller om det var lurt.</p>
+  <p class="lede step" style="margin-top:40px">Én linje. Ingen deploy av ny kode. Og golden set-et forteller om byttet var lurt.</p>
 </section>
 
 <section class="slide" data-seg="6">
@@ -942,7 +1110,7 @@ Calm, warm and concrete.</pre>
 <section class="slide" data-seg="6">
   <h2>Det dere tar med dere</h2>
   <ul class="plain" style="font-size:34px">
-    <li><span class="ok">✓</span> En leverandørabstraksjon i Python og TypeScript</li>
+    <li><span class="ok">✓</span> En provider-abstraksjon i Python og TypeScript</li>
     <li><span class="ok">✓</span> Avveiningene mellom Anthropic, OpenAI og Azure</li>
     <li><span class="ok">✓</span> Hvordan man flytter et prompt-sett uten å miste kvalitet</li>
     <li><span class="ok">✓</span> Hvordan man måler kvalitetsforskjeller objektivt</li>
@@ -951,7 +1119,7 @@ Calm, warm and concrete.</pre>
 </section>
 
 <section class="slide center" data-seg="6" style="align-items:center">
-  <svg width="460" height="460" viewBox="0 0 200 200" role="img" aria-label="Merke: Licensed to Switch, AsyncAir Flight Academy">
+  <svg width="340" height="340" viewBox="0 0 200 200" role="img" aria-label="Merke: Licensed to Switch, AsyncAir Flight Academy">
     <defs>
       <path id="arcTop" d="M 26 100 A 74 74 0 0 1 174 100"/>
       <path id="arcBot" d="M 22 100 A 78 78 0 0 0 178 100"/>
@@ -963,7 +1131,10 @@ Calm, warm and concrete.</pre>
     <text style="fill:#8FA0B8;font-family:var(--cond);font-weight:600;font-size:10.5px;letter-spacing:1.5px"><textPath href="#arcBot" startOffset="50%" text-anchor="middle">ASYNCAIR FLIGHT ACADEMY 2026</textPath></text>
     <svg x="62" y="62" width="76" height="76" viewBox="0 0 120 120" style="color:#E9EEF5"><use href="#mark"/></svg>
   </svg>
-  <p class="lede" style="margin-top:40px;text-align:center">Merket får alle med grønne tester.</p>
+  <div class="badge-share">
+    <div class="qr-box"><div id="badge-qr"></div></div>
+    <p class="lede" style="margin:0">Grønne tester? Da er dere <em>licensed to switch</em>.<br><span class="small">Skann, last ned merket og del det.</span></p>
+  </div>
 </section>
 
 <section class="slide center nobar" data-seg="6">
@@ -977,6 +1148,7 @@ Calm, warm and concrete.</pre>
   <p class="lede" style="margin-top:70px">Repo: <span contenteditable="true" spellcheck="false" data-key="repo" style="color:var(--amber)">github.com/…/asyncair-rebookr</span></p>
 </section>
 
+<div id="zoom" aria-hidden="true"><span class="hint">Klikk eller Esc for å lukke</span><div class="passenger"></div><div class="zl"></div><div class="answer"></div></div>
 <div id="bar"><span class="where" aria-hidden="true"></span><span class="track" aria-hidden="true"></span><button class="timer-link" type="button" title="Åpne timer i nytt vindu" aria-label="Åpne timer i nytt vindu"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/></svg></button><span class="num" aria-hidden="true"></span></div>
 </div>
 </div>
@@ -996,7 +1168,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
 (() => {
   const SEGMENTS = [
     { gate: "A1", name: "Fredag 16:47",       start: 0,  min: 8 },
-    { gate: "A2", name: "Hvorfor lock-in",    start: 8,  min: 10 },
+    { gate: "A2", name: "Prisen for lock-in", start: 8,  min: 10 },
     { gate: "A3", name: "Finn feilene",       start: 18, min: 15 },
     { gate: "B1", name: "Plan B – i kode",    start: 33, min: 22 },
     { gate: "B2", name: "Rød knapp",          start: 55, min: 8 },
@@ -1251,6 +1423,8 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       cur.dataset.clock ? startClock(cur) : stopClock();
       cur.querySelector("#tavle") ? startTavle() : stopTavle();
       if (cur.querySelector("#vote-qr")) renderVoteQR();
+      if (cur.querySelector("#badge-qr")) renderBadgeQR();
+      closeZoom();
     }
     const steps = [...slides[idx].querySelectorAll(".step")];
     step = Math.max(0, Math.min(steps.length, s));
@@ -1262,6 +1436,36 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   const stepsOf = i => slides[i].querySelectorAll(".step").length;
   function next() { step < stepsOf(idx) ? show(idx, step + 1) : idx < slides.length - 1 && show(idx + 1, 0); }
   function prev() { step > 0 ? show(idx, step - 1) : idx > 0 && show(idx - 1, stepsOf(idx - 1)); }
+
+  /* ---------- blind test: click an answer to enlarge it ---------- */
+  const zoom = document.getElementById("zoom");
+  function openZoom(ans) {
+    const slide = ans.closest(".slide"), col = ans.parentElement;
+    zoom.querySelector(".passenger").innerHTML = slide.querySelector(".passenger")?.innerHTML || "";
+    zoom.querySelector(".zl").textContent = "Svar " + (col.querySelector(".answer-letter")?.textContent || "");
+    zoom.querySelector(".answer").innerHTML = ans.innerHTML;
+    zoom.classList.add("open"); zoom.removeAttribute("aria-hidden");
+  }
+  function closeZoom() { zoom.classList.remove("open"); zoom.setAttribute("aria-hidden", "true"); }
+  document.getElementById("stage").addEventListener("click", e => {
+    if (zoom.classList.contains("open")) { e.stopPropagation(); closeZoom(); return; }
+    const ans = e.target.closest(".slide .answer");
+    if (ans) { e.stopPropagation(); openZoom(ans); }
+  }, true);
+  document.addEventListener("keydown", e => {
+    if (!zoom.classList.contains("open")) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if (e.key === "Escape" || e.key === " " || e.key === "Enter") closeZoom();
+  }, true);
+
+  /* ---------- slide 49: QR to the badge image in the repo ---------- */
+  function renderBadgeQR() {
+    const box = document.getElementById("badge-qr");
+    if (!box || box.dataset.done) return;
+    const repo = ((TOWER && TOWER.repo) || "github.com/oyvindmjolund/asyncair-rebookr").replace(/^github\.com\//, "");
+    const url = `https://raw.githubusercontent.com/${repo}/main/assets/licensed-to-switch.png`;
+    if (window.QRCode) { new QRCode(box, { text: url, width: 220, height: 220, colorDark: "#0E1A2B", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.M }); box.dataset.done = "1"; }
+  }
 
   /* QR code to the voting page, built from the tower URL typed on slide 30 */
   function renderVoteQR() {
