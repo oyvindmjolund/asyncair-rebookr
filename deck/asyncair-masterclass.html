@@ -283,7 +283,6 @@ mark.ga { background:rgba(61,214,140,.18); } mark.gj { background:var(--hl); }
     <span class="small">Builder track · masterclass</span>
   </div>
   <h1 style="max-width:none">Provider-uavhengig<br>LLM-arkitektur</h1>
-  <p class="lede muted" style="margin-top:34px">Hvordan du bytter provider uten å rive koden i filler.</p>
 </section>
 
 <section class="slide center" data-seg="0">
@@ -379,8 +378,9 @@ Rebookr: I'm sorry your trip has been disrupted. I found…</div>
 </section>
 
 <section class="slide" data-seg="0">
-  <h2>Hva gikk galt? <code class="inl" style="font-size:.8em">legacy/</code></h2>
+  <h2>Hva gikk galt?</h2>
   <div class="cols wide-left">
+    <div><div class="label">legacy/faq.py</div>
     <pre class="sm">import anthropic
 
 def answer_faq(question: str) -> str:
@@ -392,7 +392,7 @@ def answer_faq(question: str) -> str:
         messages=[{"role": "user",
                    "content": question}],
     )
-    return <span class="hl">resp.content[0].text</span></pre>
+    return <span class="hl">resp.content[0].text</span></pre></div>
     <ul class="plain">
       <li class="step"><strong>4 filer</strong> importerer SDK-en direkte</li>
       <li class="step"><strong>4 steder</strong> med hardkodet modellnavn</li>
@@ -1027,7 +1027,7 @@ export interface LLMProvider {
 </section>
 
 <section class="slide" data-seg="5">
-  <h2>Judgen har en favoritt</h2>
+  <h2>Dommeren har en favoritt</h2>
   <p class="small" style="margin:-14px 0 26px;max-width:none">Samme svar fra de samme tre providerne. Bare judgen er byttet ut.</p>
   <div class="cols two judges">
     <div class="jpanel"><div class="jh">Judge: <b>OpenAI</b></div><div class="jrow"><div class="jn">Anthropic<span>claude-sonnet-5-5</span></div><div class="jt"><div class="jb" style="width:87.5%"></div></div><div class="js">4,50</div></div><div class="jrow own"><div class="jn">OpenAI<span>gpt-5.5</span></div><div class="jt"><div class="jb" style="width:98.0%"></div></div><div class="js">4,92</div><div class="jtag">egen modell</div></div><div class="jrow own"><div class="jn">Azure<span>gpt-5</span></div><div class="jt"><div class="jb" style="width:81.2%"></div></div><div class="js">4,25</div><div class="jtag">samme modellfamilie</div></div><div class="jwin">Vinner: <b>OpenAI</b></div></div>
@@ -1104,7 +1104,7 @@ Calm, warm and concrete.</pre>
   <div class="callout" style="margin:30px 0">
     <p class="lede" style="margin:0">«I [prosjekt] velger vi [grad av lock-in] fordi [grunn], og vi vet at det var riktig når [måling].»</p>
   </div>
-  <div class="countdown-wrap"><span class="countdown" data-min="3">03:00</span><span class="small">To frivillige leser opp.</span></div>
+  <div class="countdown-wrap"><span class="countdown" data-min="3">03:00</span></div>
 </section>
 
 <section class="slide" data-seg="6">
