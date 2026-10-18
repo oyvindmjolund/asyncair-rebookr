@@ -213,6 +213,16 @@ mark.ga { background:rgba(61,214,140,.18); } mark.gj { background:var(--hl); }
 .res { margin-top:12px; font-size:24px; padding:10px 16px; border-radius:8px; background:var(--surface); border:1px solid var(--line); width:fit-content; }
 .res b { color:var(--green); }
 #badge-qr img, #badge-qr canvas { display:block; }
+.repo-dot { position:absolute; right:26px; bottom:22px; width:16px; height:16px; border-radius:50%; border:0; padding:0; background:var(--muted); opacity:.14; cursor:pointer; }
+.repo-dot:hover { opacity:.6; }
+.repo-card { display:none; margin:auto; text-align:center; }
+.blank.show-repo .repo-card { display:block; }
+.blank.show-repo .repo-dot { opacity:.4; }
+.repo-url { font-family:var(--mono); font-size:56px; color:var(--ink); margin:18px 0 40px; max-width:none; }
+.repo-row { display:flex; gap:56px; align-items:center; justify-content:center; text-align:left; }
+.repo-row .qr-box { padding:16px; }
+.repo-steps { font-size:32px; line-height:1.5; margin:0; padding-left:1.2em; }
+#repo-qr img, #repo-qr canvas { display:block; }
 .badge-share { display:flex; align-items:center; gap:40px; margin-top:34px; }
 .badge-share .qr-box { padding:14px; border-radius:14px; }
 .answer-letter { font-family:var(--cond); font-weight:700; font-size:54px; color:var(--amber); margin-bottom:8px; }
@@ -274,7 +284,22 @@ mark.ga { background:rgba(61,214,140,.18); } mark.gj { background:var(--hl); }
 </svg>
 <div id="viewport"><div id="stage">
 <!-- ============ SLIDE 0 · BLANK (før start) ============ -->
-<section class="slide nobar blank" data-seg="0" aria-label="Blank"></section>
+<section class="slide nobar blank" data-seg="0" aria-label="Blank">
+  <button class="repo-dot" type="button" title="Vis repo (R)" aria-label="Vis repo-lenken"></button>
+  <div class="repo-card" aria-hidden="true">
+    <div class="small" style="letter-spacing:.12em;text-transform:uppercase;color:var(--amber)">Før vi tar av</div>
+    <p class="repo-url"></p>
+    <div class="repo-row">
+      <div class="qr-box"><div id="repo-qr"></div></div>
+      <ol class="repo-steps">
+        <li>Logg inn på GitHub</li>
+        <li>Åpne repoet</li>
+        <li><b>Code → Codespaces → Create codespace on main</b></li>
+        <li>Vent til oppsettet er ferdig</li>
+      </ol>
+    </div>
+  </div>
+</section>
 
 <!-- ============ A1 · FREDAG 16:47 (0–8) ============ -->
 <section class="slide center nobar" data-seg="0">
@@ -1416,6 +1441,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     const prev = slides[idx];
     if (n !== idx || !prev.classList.contains("active")) {
       prev.classList.remove("active"); prev.setAttribute("aria-hidden", "true");
+      prev.classList.remove("show-repo");
       idx = n;
       const cur = slides[idx];
       cur.classList.add("active"); cur.removeAttribute("aria-hidden");
@@ -1457,6 +1483,18 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     e.stopImmediatePropagation(); e.preventDefault();
     if (e.key === "Escape" || e.key === " " || e.key === "Enter") closeZoom();
   }, true);
+
+  /* ---------- slide 0: a discreet button (or R) shows the repo link + QR ---------- */
+  const REPO = ((TOWER && TOWER.repo) || "github.com/oyvindmjolund/asyncair-rebookr");
+  function toggleRepo(force) {
+    const sl = document.querySelector(".slide.blank"); if (!sl) return;
+    const on = sl.classList.toggle("show-repo", force);
+    sl.querySelector(".repo-card").setAttribute("aria-hidden", on ? "false" : "true");
+    sl.querySelector(".repo-url").textContent = REPO;
+    const box = document.getElementById("repo-qr");
+    if (on && !box.dataset.done && window.QRCode) { new QRCode(box, { text: "https://" + REPO, width: 240, height: 240, colorDark: "#0E1A2B", colorLight: "#FFFFFF", correctLevel: QRCode.CorrectLevel.M }); box.dataset.done = "1"; }
+  }
+  document.querySelector(".repo-dot")?.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); toggleRepo(); });
 
   /* ---------- slide 49: QR to the badge image in the repo ---------- */
   function renderBadgeQR() {
@@ -1511,10 +1549,11 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     else if (k === "f" || k === "F") { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {}); }
     else if (k === "l" || k === "L") toggleTheme();
     else if (k === "b" || k === "B" || k === ".") { const b = document.getElementById("blackout"); b.style.display = b.style.display === "block" ? "none" : "block"; }
+    else if ((k === "r" || k === "R") && slides[idx].classList.contains("blank")) toggleRepo();
     else if (k === "?") { const h = document.getElementById("help"); h.style.display = h.style.display === "block" ? "none" : "block"; }
   });
   document.getElementById("viewport").addEventListener("click", e => {
-    if (e.target.closest("[contenteditable], a, button, .countdown")) return;
+    if (e.target.closest("[contenteditable], a, button, .countdown, .repo-card")) return;
     if (window.getSelection && String(window.getSelection())) return;
     next();
   });
